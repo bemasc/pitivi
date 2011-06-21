@@ -32,18 +32,22 @@ class EnvelopeExtractee(Extractee, Loggable):
         self._cbargs = cbargs
         self._chunks = []
         self._leftover = numpy.zeros((0,))
+        # self._leftover buffers up to blocksize-1 samples in case receive()
+        # is called with a number of samples that is not divisible by blocksize
     
     def receive(self, a):
         if len(self._leftover) > 0:
             a = numpy.concatenate((self._leftover, a))
-        lol = len(a) % self._blocksize
+        lol = len(a) % self._blocksize # lol is leftover-length
         if lol > 0:
             self._leftover = a[-lol:]
             a = a[:-lol]
         else:
-            self._leftover = numpy.zeros((0,))
+            self._leftover = numpy.zeros((0,)) # empty array means no leftover
         a = numpy.abs(a).reshape((len(a)//self._blocksize, self._blocksize))
         a = numpy.sum(a,1)
+        # Relies on a being a floating-point type. If a is int16 then the sum
+        # may overflow.
         self._chunks.append(a)
         self.debug("Chunk %i has size %i", len(self._chunks), len(a))
     
@@ -76,15 +80,15 @@ class AutoAligner(Loggable):
         """
         Loggable.__init__(self)
         self._tos = dict.fromkeys(tobjects)
-        #values are implicitly None.  The values will be replaced by the
-        #envelopes as envelopes are computed
+        # self._tos maps each object to its envelope.  The values are initially
+        # None prior to envelope computation.
         self._callback = callback
     
     def _envelopeCb(self, array, to):
         self.debug("Receiving envelope for %s", to)
         self._tos[to] = array
-        if not None in self._tos.itervalues():
-            self._performShifts()
+        if not None in self._tos.itervalues(): # This was the last envelope
+            self._performShifts() 
     
     def start(self):
         for to in self._tos.iterkeys():
@@ -92,12 +96,13 @@ class AutoAligner(Loggable):
             if a is None:
                 self._tos.remove(to)
                 continue
-            blocksize = a.stream.rate//self.BLOCKRATE
+            blocksize = a.stream.rate//self.BLOCKRATE # in units of samples
             e = EnvelopeExtractee(blocksize, self._envelopeCb, to)
             r = RandomAccessAudioExtractor(a.factory, a.stream)
             r.extract(e, a.in_point, a.out_point - a.in_point)
     
     def _chooseTemplate(self):
+        # chooses the timeline object with lowest priority as the template
         def priority(to): return to.priority
         return min(self._tos.iterkeys(), key=priority)
     
@@ -105,8 +110,12 @@ class AutoAligner(Loggable):
         self.debug("performing shifts")
         template = self._chooseTemplate()
         tenv = self._tos.pop(template)
-        #L is the maximum size of a cross-correlation
+        # tenv is the envelope of template.  pop() also removes tenv and
+        # template from future consideration.
+        # L is the maximum size of a cross-correlation between tenv and any of
+        # the other envelopes.
         L = len(tenv) + max(len(e) for e in self._tos.itervalues()) - 1
+        # We round up L to the next power of 2 for speed in the FFT.
         L = nextpow2(L)
         tenv -= numpy.mean(tenv)
         tenv = numpy.fft.rfft(tenv, L).conj()
@@ -115,17 +124,25 @@ class AutoAligner(Loggable):
             # by locating the maximum of the cross-correlation of their
             # (mean-subtracted) envelopes.
             menv -= numpy.mean(menv)
+            # Compute cross-correlation
             xcorr = numpy.fft.irfft(tenv*numpy.fft.rfft(menv, L))
             p = numpy.argmax(xcorr)
-            if p > L - len(menv):
-                p -= L
+            # p is the shift, in units of blocks, that maximizes xcorr
+            # WARNING: p maybe a numpy.int32, not a python integer
+            if p > L - len(menv): # Negative shifts appear large and positive
+                p -= L # This corrects them to be negative
             tshift = (int(p) * int(1e9))//self.BLOCKRATE
+            # tshift is p rescaled to units of nanoseconds
             self.debug("Shifting %s to %i ns from %i", 
                              movable, tshift, template.start)
             newstart = template.start - tshift
             if newstart >= 0:
                 movable.start = newstart
             else:
+                # Timeline objects always must have a positive start point, so
+                # if alignment would move an object to start at negative time,
+                # we instead make it start at zero and chop off the required
+                # amount at the beginning.
                 movable.start = 0
                 movable.in_point = movable.in_point - newstart
         self._callback()
