@@ -1959,9 +1959,15 @@ class Timeline(Signallable, Loggable):
 
         self.selection.setSelection(new_track_objects, SELECT_ADD)
 
-    def alignSelection(self):
-        a = AutoAligner(self.selection.selected, self.enableUpdates)
-        self.disableUpdates()
+    def alignSelection(self, callback):
+        """
+        Auto-align the selected set of L{TimelineObject}s based on their
+        contents.  Return asynchronously, and call back when finished
+        
+        @param callback: function to call (with no arguments) when finished.
+        @type callback: function
+        """
+        a = AutoAligner(self.selection.selected, callback)
         a.start()
 
     def deleteSelection(self):

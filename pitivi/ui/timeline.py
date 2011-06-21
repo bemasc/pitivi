@@ -806,7 +806,13 @@ class Timeline(gtk.Table, Loggable, Zoomable):
 
     def alignSelected(self, unused_action):
         if self.timeline:
-            self.timeline.alignSelection()
+            self.app.action_log.begin("align")
+            self.timeline.disableUpdates()
+            self.timeline.alignSelection(self._alignedCb)
+    
+    def _alignedCb(self):
+        self.timeline.enableUpdates()
+        self.app.action_log.commit()
 
     def split(self, action):
         self.app.action_log.begin("split")
