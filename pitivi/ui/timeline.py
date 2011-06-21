@@ -778,11 +778,15 @@ class Timeline(gtk.Table, Loggable, Zoomable):
 
     def unlinkSelected(self, unused_action):
         if self.timeline:
+            self.app.action_log.begin("unlink")
             self.timeline.unlinkSelection()
+            self.app.action_log.commit()
 
     def linkSelected(self, unused_action):
         if self.timeline:
+            self.app.action_log.begin("link")
             self.timeline.linkSelection()
+            self.app.action_log.commit()
 
     def ungroupSelected(self, unused_action):
         if self.timeline:
@@ -792,7 +796,9 @@ class Timeline(gtk.Table, Loggable, Zoomable):
 
     def groupSelected(self, unused_action):
         if self.timeline:
+            self.app.action_log.begin("group")
             self.timeline.groupSelection()
+            self.app.action_log.commit()
 
     def split(self, action):
         self.app.action_log.begin("split")
