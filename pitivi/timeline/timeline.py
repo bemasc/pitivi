@@ -32,6 +32,7 @@ from pitivi.utils import start_insort_right, infinity, getPreviousObject, \
         getNextObject
 from pitivi.timeline.gap import Gap, SmallestGapsFinder, invalid_gap
 from pitivi.stream import VideoStream
+from pitivi.timeline.align import AutoAligner
 
 # Selection modes
 SELECT = 0
@@ -1957,6 +1958,11 @@ class Timeline(Signallable, Loggable):
             self.removeTimelineObject(timeline_object, deep=True)
 
         self.selection.setSelection(new_track_objects, SELECT_ADD)
+
+    def alignSelection(self):
+        a = AutoAligner(self.selection.selected, self.enableUpdates)
+        self.disableUpdates()
+        a.start()
 
     def deleteSelection(self):
         """

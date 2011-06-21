@@ -64,6 +64,7 @@ UNLINK = _("Break links between clips")
 LINK = _("Link together arbitrary clips")
 UNGROUP = _("Ungroup clips")
 GROUP = _("Group clips")
+ALIGN = _("Align clips based on content")
 SELECT_BEFORE = ("Select all sources before selected")
 SELECT_AFTER = ("Select all after selected")
 
@@ -87,6 +88,7 @@ ui = '''
                 <menuitem action="UnlinkObj" />
                 <menuitem action="GroupObj" />
                 <menuitem action="UngroupObj" />
+                <menuitem action="AlignObj" />
                 <separator />
                 <menuitem action="Prevframe" />
                 <menuitem action="Nextframe" />
@@ -104,6 +106,7 @@ ui = '''
             <toolitem action="LinkObj" />
             <toolitem action="GroupObj" />
             <toolitem action="UngroupObj" />
+            <toolitem action="AlignObj" />
         </placeholder>
     </toolbar>
     <accelerator action="DeleteObj" />
@@ -326,6 +329,8 @@ class Timeline(gtk.Table, Loggable, Zoomable):
                 self.ungroupSelected),
             ("GroupObj", "pitivi-group", None, "<Control>G", GROUP,
                 self.groupSelected),
+            ("AlignObj", "pitivi-align", None, "<Shift><Control>A", ALIGN,
+                self.alignSelected),
         )
 
         self.playhead_actions = (
@@ -350,6 +355,7 @@ class Timeline(gtk.Table, Loggable, Zoomable):
         self.unlink_action = actiongroup.get_action("UnlinkObj")
         self.group_action = actiongroup.get_action("GroupObj")
         self.ungroup_action = actiongroup.get_action("UngroupObj")
+        self.align_action = actiongroup.get_action("AlignObj")
         self.delete_action = actiongroup.get_action("DeleteObj")
         self.split_action = actiongroup.get_action("Split")
         self.keyframe_action = actiongroup.get_action("Keyframe")
@@ -713,6 +719,7 @@ class Timeline(gtk.Table, Loggable, Zoomable):
         unlink = False
         group = False
         ungroup = False
+        align = False
         split = False
         keyframe = False
         if timeline.selection:
@@ -720,6 +727,7 @@ class Timeline(gtk.Table, Loggable, Zoomable):
             if len(timeline.selection) > 1:
                 link = True
                 group = True
+                align = True
 
             start = None
             duration = None
@@ -748,6 +756,7 @@ class Timeline(gtk.Table, Loggable, Zoomable):
         self.unlink_action.set_sensitive(unlink)
         self.group_action.set_sensitive(group)
         self.ungroup_action.set_sensitive(ungroup)
+        self.align_action.set_sensitive(align)
         self.split_action.set_sensitive(split)
         self.keyframe_action.set_sensitive(keyframe)
 
@@ -794,6 +803,10 @@ class Timeline(gtk.Table, Loggable, Zoomable):
             self.app.action_log.begin("group")
             self.timeline.groupSelection()
             self.app.action_log.commit()
+
+    def alignSelected(self, unused_action):
+        if self.timeline:
+            self.timeline.alignSelection()
 
     def split(self, action):
         self.app.action_log.begin("split")
