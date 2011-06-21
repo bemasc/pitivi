@@ -75,6 +75,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         self.tdur = 30 * gst.SECOND
         self._queue = []
         RandomAccessExtractor.__init__(self, factory, stream_)
+        self._ready = False
 
     def _pipelineInit(self, factory, sbin):
         self.spacing = 0
@@ -89,10 +90,16 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         bus.add_signal_watch()
         bus.connect("message::segment-done", self._busMessageSegmentDoneCb)
         bus.connect("message::error", self._busMessageErrorCb)
+        self._donecb_id = bus.connect("message::async-done",
+                                                self._busMessageAsyncDoneCb)
 
-        self._audio_cur = None
         self.audioPipeline.set_state(gst.STATE_PAUSED)
-        import time; time.sleep(5)
+        # The audiopipeline.set_state() method does not take effect immediately,
+        # but the extraction process (and in particular self._startSegment) will
+        # not work properly until self.audioPipeline reaches the desired
+        # state (STATE_PAUSED).  To ensure that this is the case, we wait until
+        # the ASYNC_DONE message is received before setting self._ready = True,
+        # which enables extraction to proceed.
 
     def _busMessageSegmentDoneCb(self, bus, message):
         self.debug("segment done")
@@ -104,9 +111,15 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
 
         return gst.BUS_PASS
 
+    def _busMessageAsyncDoneCb(self, bus, message):
+        self.debug("Pipeline is ready for seeking")
+        bus.disconnect(self._donecb_id) #Don't call me again
+        self._ready = True
+        if len(self._queue) > 0: #Someone called .extract() before we were ready
+            self._run()
+
     def _startSegment(self, timestamp, duration):
         self.debug("processing segment with timestamp=%i and duration=%i" % (timestamp, duration))
-        self._audio_cur = timestamp, duration
         res = self.audioPipeline.seek(1.0,
             gst.FORMAT_TIME,
             gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE | gst.SEEK_FLAG_SEGMENT,
@@ -119,25 +132,33 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         return res
 
     def _finishSegment(self):
+        # Pull the raw data from the array sink
         samples = self.audioSink.samples
         e, start, duration = self._queue[0]
+        # transmit it to the Extractee
         e.receive(samples)
         self.audioSink.reset()
+        # Chop off that bit of the segment
         start += self.tdur
         duration -= self.tdur
+        # If there's anything left of the segment, keep processing it.
         if duration > 0:
             self._queue[0] = (e, start, duration)
+        # Otherwise, throw it out and finalize the extractee.
         else:
             self._queue.pop(0)
             e.finalize()
+        # If there's more to do, keep running
         if len(self._queue) > 0:
             self._run()
     
     def extract(self, e, start, duration):
         stopped = len(self._queue) == 0
         self._queue.append((e, start, duration))
-        if stopped:
+        if stopped and self._ready:
             self._run()
+        # if self._ready is False, self._run() will be called from
+        # self._busMessageDoneCb().
     
     def _run(self):
         # Control flows in a cycle:
