@@ -34,7 +34,7 @@ class Extractor(Loggable):
         @type stream_: L{Stream}
         """
         Loggable.__init__(self)
-        self.debug("Initialized with %s %s" % (factory, stream_))
+        self.debug("Initialized with %s %s", factory, stream_)
 
     def extract(self, e, start, duration):
         """ Extract the raw data corresponding to a segment of the stream.
@@ -119,7 +119,8 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
             self._run()
 
     def _startSegment(self, timestamp, duration):
-        self.debug("processing segment with timestamp=%i and duration=%i" % (timestamp, duration))
+        self.debug("processing segment with timestamp=%i and duration=%i",
+                                                            timestamp, duration)
         res = self.audioPipeline.seek(1.0,
             gst.FORMAT_TIME,
             gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE | gst.SEEK_FLAG_SEGMENT,

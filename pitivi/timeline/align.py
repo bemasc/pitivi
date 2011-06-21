@@ -45,10 +45,10 @@ class EnvelopeExtractee(Extractee, Loggable):
         a = numpy.abs(a).reshape((len(a)//self._blocksize, self._blocksize))
         a = numpy.sum(a,1)
         self._chunks.append(a)
-        self.debug("Chunk %i has size %i" % (len(self._chunks), len(a)))
+        self.debug("Chunk %i has size %i", len(self._chunks), len(a))
     
     def finalize(self):
-        self.debug("Finalizing %i chunks" % len(self._chunks))
+        self.debug("Finalizing %i chunks", len(self._chunks))
         a = numpy.concatenate(self._chunks)
         self._cb(a, *self._cbargs)
 
@@ -81,7 +81,7 @@ class AutoAligner(Loggable):
         self._callback = callback
     
     def _envelopeCb(self, array, to):
-        self.debug("Receiving envelope for %s" % to)
+        self.debug("Receiving envelope for %s", to)
         self._tos[to] = array
         if not None in self._tos.itervalues():
             self._performShifts()
@@ -120,8 +120,8 @@ class AutoAligner(Loggable):
             if p > L - len(menv):
                 p -= L
             tshift = (int(p) * int(1e9))//self.BLOCKRATE
-            self.debug("Shifting %s to %i ns from %i" 
-                             % (movable, tshift, template.start))
+            self.debug("Shifting %s to %i ns from %i", 
+                             movable, tshift, template.start)
             newstart = template.start - tshift
             if newstart >= 0:
                 movable.start = newstart
