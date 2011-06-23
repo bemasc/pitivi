@@ -2,6 +2,7 @@ import numpy
 from pitivi.timeline.extract import Extractee, RandomAccessAudioExtractor
 from pitivi.stream import AudioStream
 from pitivi.log.loggable import Loggable
+from pitivi.timeline.alignalgs import affinealign
 
 def nextpow2(n):
     i = 1
@@ -54,6 +55,7 @@ class EnvelopeExtractee(Extractee, Loggable):
     def finalize(self):
         self.debug("Finalizing %i chunks", len(self._chunks))
         a = numpy.concatenate(self._chunks)
+        a.tofile('/tmp/a%s' % self._cbargs[0])
         self._cb(a, *self._cbargs)
 
 class AutoAligner(Loggable):
@@ -88,7 +90,7 @@ class AutoAligner(Loggable):
         self.debug("Receiving envelope for %s", to)
         self._tos[to] = array
         if not None in self._tos.itervalues(): # This was the last envelope
-            self._performShifts() 
+            self._performAlignment() 
     
     def start(self):
         for to in self._tos.iterkeys():
@@ -106,6 +108,38 @@ class AutoAligner(Loggable):
         def priority(to): return to.priority
         return min(self._tos.iterkeys(), key=priority)
     
+    def _performAlignment(self):
+        self.debug("performing alignment")
+        template = self._chooseTemplate()
+        tenv = self._tos.pop(template)
+        # tenv is the envelope of template.  pop() also removes tenv and
+        # template from future consideration.
+        pairs = list(self._tos.iteritems())
+        movables = [to for to,e in pairs]
+        envelopes = [e for to,e in pairs]
+        offsets, drifts = affinealign(tenv, envelopes, 0.015)
+        for i in xrange(len(pairs)):
+            # center_offset is the offset necessary to position the
+            # middle of TimelineObject i correctly in the reference.
+            # If we do not have the ability to speed up or slow down clips,
+            # then this is the best shift to minimize the maximum error
+            center_offset = offsets[i] + drifts[i]*len(envelopes[i])/2
+            tshift = int((center_offset * int(1e9))/self.BLOCKRATE)
+            # tshift is the offset rescaled to units of nanoseconds
+            self.debug("Shifting %s to %i ns from %i", 
+                             movables[i], tshift, template.start)
+            newstart = template.start + tshift
+            if newstart >= 0:
+                movables[i].start = newstart
+            else:
+                # Timeline objects always must have a positive start point, so
+                # if alignment would move an object to start at negative time,
+                # we instead make it start at zero and chop off the required
+                # amount at the beginning.
+                movables[i].start = 0
+                movables[i].in_point = movables[i].in_point - newstart
+        self._callback()
+
     def _performShifts(self):
         self.debug("performing shifts")
         template = self._chooseTemplate()
@@ -126,6 +160,7 @@ class AutoAligner(Loggable):
             menv -= numpy.mean(menv)
             # Compute cross-correlation
             xcorr = numpy.fft.irfft(tenv*numpy.fft.rfft(menv, L))
+            xcorr.tofile('/tmp/xc%s' % movable)
             p = numpy.argmax(xcorr)
             # p is the shift, in units of blocks, that maximizes xcorr
             # WARNING: p maybe a numpy.int32, not a python integer
