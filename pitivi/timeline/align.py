@@ -169,7 +169,7 @@ class AutoAligner(Loggable):
             p = numpy.argmax(xcorr)
             # p is the shift, in units of blocks, that maximizes xcorr
             # WARNING: p maybe a numpy.int32, not a python integer
-            if p > L - len(menv): # Negative shifts appear large and positive
+            if p >= len(menv): # Negative shifts appear large and positive
                 p -= L # This corrects them to be negative
             tshift = (int(p) * int(1e9))//self.BLOCKRATE
             # tshift is p rescaled to units of nanoseconds
