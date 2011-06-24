@@ -74,7 +74,7 @@ class ExtractionSink(gst.BaseSink):
 
     def do_render(self, buf):
         if self.extractee is not None:
-            self.extractee.receive(array.array('f',str(buf)))
+            self.extractee.receive(array.array('f',buf.data))
         return gst.FLOW_OK
 
     def do_preroll(self, buf):
