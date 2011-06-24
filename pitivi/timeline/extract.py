@@ -1,6 +1,6 @@
 import gst
 from pitivi.elements.singledecodebin import SingleDecodeBin
-from pitivi.elements.arraysink import ArraySink
+from pitivi.elements.extractionsink import ExtractionSink
 from pitivi.log.loggable import Loggable
 import pitivi.utils as utils
 
@@ -80,7 +80,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
     def _pipelineInit(self, factory, sbin):
         self.spacing = 0
 
-        self.audioSink = ArraySink()
+        self.audioSink = ExtractionSink()
         conv = gst.element_factory_make("audioconvert")
         self.audioPipeline = utils.pipeline({
             sbin : conv,
@@ -133,22 +133,9 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         return res
 
     def _finishSegment(self):
-        # Pull the raw data from the array sink
-        samples = self.audioSink.samples
-        e, start, duration = self._queue[0]
-        # transmit it to the Extractee
-        e.receive(samples)
+        self.audioSink.extractee.finalize()
         self.audioSink.reset()
-        # Chop off that bit of the segment
-        start += self.tdur
-        duration -= self.tdur
-        # If there's anything left of the segment, keep processing it.
-        if duration > 0:
-            self._queue[0] = (e, start, duration)
-        # Otherwise, throw it out and finalize the extractee.
-        else:
-            self._queue.pop(0)
-            e.finalize()
+        self._queue.pop(0)
         # If there's more to do, keep running
         if len(self._queue) > 0:
             self._run()
@@ -164,9 +151,11 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
     def _run(self):
         # Control flows in a cycle:
         # _run -> _startSegment -> busMessageSegmentDoneCb -> _finishSegment -> _run
-        # This forms a loop that extracts one block in each cycle.  The cycle
+        # This forms a loop that extracts an entire segment (i.e. satisfies an
+        # extract request) in each cycle. The cycle
         # runs until the queue of Extractees empties.  If the cycle is not
         # running, extract() will kick it off again.
         e, start, duration = self._queue[0]
-        self._startSegment(start, min(duration, self.tdur))
+        self.audioSink.set_extractee(e)
+        self._startSegment(start, duration)
             

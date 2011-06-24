@@ -1,4 +1,5 @@
 import numpy
+import array
 from pitivi.timeline.extract import Extractee, RandomAccessAudioExtractor
 from pitivi.stream import AudioStream
 from pitivi.log.loggable import Loggable
@@ -31,32 +32,36 @@ class EnvelopeExtractee(Extractee, Loggable):
         self._blocksize = blocksize
         self._cb = callback
         self._cbargs = cbargs
-        self._chunks = []
-        self._leftover = numpy.zeros((0,))
+        self._blocks = numpy.zeros((0,),dtype=numpy.float32)
+        self._empty = array.array('f',[])
+        self._samples = array.array('f',[])
+        self._threshold = 2000*blocksize
         # self._leftover buffers up to blocksize-1 samples in case receive()
         # is called with a number of samples that is not divisible by blocksize
     
     def receive(self, a):
-        if len(self._leftover) > 0:
-            a = numpy.concatenate((self._leftover, a))
-        lol = len(a) % self._blocksize # lol is leftover-length
-        if lol > 0:
-            self._leftover = a[-lol:]
-            a = a[:-lol]
+        self._samples.extend(a)
+        buffered_samples = len(self._samples)
+        if buffered_samples < self._threshold:
+            return
+        excess = buffered_samples % self._blocksize
+        if excess != 0:
+            a = self._samples[:-excess]
+            self._samples = self._samples[-excess:]
         else:
-            self._leftover = numpy.zeros((0,)) # empty array means no leftover
-        a = numpy.abs(a).reshape((len(a)//self._blocksize, self._blocksize))
-        a = numpy.sum(a,1)
+            a = self._samples
+            self._samples = array.array('f',[])
+        self.debug("Adding %s samples to %s blocks", len(a), len(self._blocks))
+        newblocks = len(a)//self._blocksize
+        a = numpy.abs(a).reshape((newblocks, self._blocksize))
+        self._blocks.resize((len(self._blocks) + newblocks,))
+        self._blocks[-newblocks:] = numpy.sum(a,1)
         # Relies on a being a floating-point type. If a is int16 then the sum
         # may overflow.
-        self._chunks.append(a)
-        self.debug("Chunk %i has size %i", len(self._chunks), len(a))
-    
+        
     def finalize(self):
-        self.debug("Finalizing %i chunks", len(self._chunks))
-        a = numpy.concatenate(self._chunks)
-        a.tofile('/tmp/a%s' % self._cbargs[0])
-        self._cb(a, *self._cbargs)
+        #self._blocks.tofile('/tmp/a%s' % self._cbargs[0])
+        self._cb(self._blocks, *self._cbargs)
 
 class AutoAligner(Loggable):
     """ Class for aligning a set of L{TimelineObject}s automatically based on
@@ -90,7 +95,7 @@ class AutoAligner(Loggable):
         self.debug("Receiving envelope for %s", to)
         self._tos[to] = array
         if not None in self._tos.itervalues(): # This was the last envelope
-            self._performAlignment() 
+            self._performShifts() 
     
     def start(self):
         for to in self._tos.iterkeys():
@@ -160,7 +165,7 @@ class AutoAligner(Loggable):
             menv -= numpy.mean(menv)
             # Compute cross-correlation
             xcorr = numpy.fft.irfft(tenv*numpy.fft.rfft(menv, L))
-            xcorr.tofile('/tmp/xc%s' % movable)
+            #xcorr.tofile('/tmp/xc%s' % movable)
             p = numpy.argmax(xcorr)
             # p is the shift, in units of blocks, that maximizes xcorr
             # WARNING: p maybe a numpy.int32, not a python integer
