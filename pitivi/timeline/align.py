@@ -11,6 +11,31 @@ def nextpow2(n):
         i *= 2
     return i
 
+def submax(left,middle,right):
+    """Given samples from a quadratic P(x) at x=-1, 0, and 1, find the x
+    that maximizes P.  This is useful for determining the subsample position of
+    the maximum given three samples around the observed maximum.
+    
+    @param left: value at x=-1
+    @type left: L{float}
+    @param middle: value at x=0
+    @type middle: L{float}
+    @param right: value at x=1
+    @type right: L{float}
+    @return: value of x that extremizes the interpolating quadratic
+    @rtype: L{float}"""
+    L = middle - left #  L and R are both positive because middle is the
+    R = middle - right # observed max of the integer samples
+    # 
+    # q(x) = bx*(x-a) #b is negative, a may be positive or negative
+    # b*(1 - a) = R
+    # b*(1 + a) = L
+    # (1+a)/(1-a) = L/R
+    # a + 1 = R/L - (R/L)*a
+    # a*(1+R/L) = R/L - 1
+    # a = (R/L - 1)/(R/L + 1) = (R-L)/(R+L)
+    return 0.5*(R-L)/(R+L) #max is halfway between the two roots
+
 class EnvelopeExtractee(Extractee, Loggable):
     """ Class that computes the envelope of a 1-D signal
         (presumably audio).  The envelope is computed incrementally,
@@ -41,10 +66,13 @@ class EnvelopeExtractee(Extractee, Loggable):
     
     def receive(self, a):
         self._samples.extend(a)
-        buffered_samples = len(self._samples)
-        if buffered_samples < self._threshold:
+        if len(self._samples) < self._threshold:
             return
-        excess = buffered_samples % self._blocksize
+        else:
+            self._process_samples()
+    
+    def _process_samples(self):
+        excess = len(self._samples) % self._blocksize
         if excess != 0:
             a = self._samples[:-excess]
             self._samples = self._samples[-excess:]
@@ -60,6 +88,7 @@ class EnvelopeExtractee(Extractee, Loggable):
         # may overflow.
         
     def finalize(self):
+        self._process_samples() # absorb any remaining buffered samples
         #self._blocks.tofile('/tmp/a%s' % self._cbargs[0])
         self._cb(self._blocks, *self._cbargs)
 
@@ -168,10 +197,14 @@ class AutoAligner(Loggable):
             #xcorr.tofile('/tmp/xc%s' % movable)
             p = numpy.argmax(xcorr)
             # p is the shift, in units of blocks, that maximizes xcorr
-            # WARNING: p maybe a numpy.int32, not a python integer
+            # WARNING: p may be a numpy.int32, not a python integer
+            pfrac = submax(xcorr[(p-1) % L], xcorr[p], xcorr[(p+1) % L])
+            p = p + pfrac #p is now a float indicating the interpolated maximum
+            # For well-behaved samples this should allow us to achieve
+            # accuracy substantially better than 1/BLOCKRATE.
             if p >= len(menv): # Negative shifts appear large and positive
                 p -= L # This corrects them to be negative
-            tshift = (int(p) * int(1e9))//self.BLOCKRATE
+            tshift = int((p * 1e9)/self.BLOCKRATE)
             # tshift is p rescaled to units of nanoseconds
             self.debug("Shifting %s to %i ns from %i", 
                              movable, tshift, template.start)
