@@ -82,9 +82,11 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
 
         self.audioSink = ExtractionSink()
         conv = gst.element_factory_make("audioconvert")
+        q = gst.element_factory_make("queue")
         self.audioPipeline = utils.pipeline({
             sbin : conv,
-            conv : self.audioSink,
+            conv : q,
+            q : self.audioSink,
             self.audioSink : None})
         bus = self.audioPipeline.get_bus()
         bus.add_signal_watch()
