@@ -78,6 +78,6 @@ class ExtractionSink(gst.BaseSink):
         return gst.FLOW_OK
 
     def do_preroll(self, buf):
-        return self.do_render(buf)
+        return gst.FLOW_OK
 
 gobject.type_register(ExtractionSink)
