@@ -43,6 +43,7 @@ from pitivi.utils import Seeker
 from pitivi.ui.filelisterrordialog import FileListErrorDialog
 from pitivi.ui.curve import Curve
 from pitivi.ui.common import SPACING
+from pitivi.ui.alignmentprogress import AlignmentProgressDialog
 
 from pitivi.factories.operation import EffectFactory
 
@@ -229,6 +230,7 @@ class Timeline(gtk.Table, Loggable, Zoomable):
         self._createUI()
         self._prev_duration = 0
         self.rate = gst.Fraction(1, 1)
+        self._progress = None # Progress dialog
 
     def _createUI(self):
         self.leftSizeGroup = gtk.SizeGroup(gtk.SIZE_GROUP_HORIZONTAL)
@@ -806,13 +808,18 @@ class Timeline(gtk.Table, Loggable, Zoomable):
 
     def alignSelected(self, unused_action):
         if self.timeline:
+            self._progress = AlignmentProgressDialog(self.app.gui, None)
+            self._progress.window.show()
             self.app.action_log.begin("align")
             self.timeline.disableUpdates()
-            self.timeline.alignSelection(self._alignedCb)
+            pmeter = self.timeline.alignSelection(self._alignedCb)
+            pmeter.addWatcher(self._progress.updatePosition)
     
     def _alignedCb(self):
         self.timeline.enableUpdates()
         self.app.action_log.commit()
+        self._progress.window.destroy()
+        self._progress = None
 
     def split(self, action):
         self.app.action_log.begin("split")

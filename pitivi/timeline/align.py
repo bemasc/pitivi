@@ -1,5 +1,9 @@
 import numpy
 import array
+import time
+import gobject
+import gst
+from pitivi.utils import beautify_ETA
 from pitivi.timeline.extract import Extractee, RandomAccessAudioExtractor
 from pitivi.stream import AudioStream
 from pitivi.log.loggable import Loggable
@@ -22,7 +26,7 @@ def submax(left,middle,right):
     @type middle: L{float}
     @param right: value at x=1
     @type right: L{float}
-    @return: value of x that extremizes the interpolating quadratic
+    @returns: value of x that extremizes the interpolating quadratic
     @rtype: L{float}"""
     L = middle - left #  L and R are both positive because middle is the
     R = middle - right # observed max of the integer samples
@@ -35,6 +39,62 @@ def submax(left,middle,right):
     # a*(1+R/L) = R/L - 1
     # a = (R/L - 1)/(R/L + 1) = (R-L)/(R+L)
     return 0.5*(R-L)/(R+L) #max is halfway between the two roots
+
+class ProgressMeter:
+    """ Abstract interface representing a progress meter. """
+    def addWatcher(self, r):
+        """ Add a progress watching callback function.  This callback will
+        always be called from the main thread.
+        
+        @param r: a function to call with progress updates.
+        @type r: function(fractional_progress, time_remaining_text)
+        """
+        raise NotImplementedError
+
+class ProgressAggregator(ProgressMeter):
+    """ A ProgressMeter that aggregates progress reports from multiple
+        sources into a unified progress report """
+    def __init__(self):
+        self._targets = []
+        self._portions = []
+        self._start = time.time()
+        self._watchers = []
+
+    def getPortionCB(self, target):
+        """ Prepare a new input for the Aggregator.  Given a target size
+            (in arbitrary units, but should be consistent across all calls on
+            a single ProgressAggregator object), it returns a callback that
+            can be used to update progress on this portion of the task.
+            
+            @param target: the total task size for this portion
+            @type target: number
+            @returns: a callback that can be used to inform the Aggregator of subsequent
+                updates to this portion
+            @rtype: function(x), where x should be a number indicating the absolute
+                amount of this subtask that has been completed.
+        """
+        i = len(self._targets)
+        self._targets.append(target)
+        self._portions.append(0)
+        def cb(thusfar):
+            self._portions[i] = thusfar
+            gobject.idle_add(self._callForward)
+        return cb
+    
+    def addWatcher(self, w):
+        self._watchers.append(w)
+    
+    def _callForward(self):
+        t = sum(self._targets)
+        p = sum(self._portions)
+        if t == 0:
+            return
+        frac = min(1.0, float(p)/t)
+        now = time.time()
+        remaining = (now-self._start)*(1-frac)/frac
+        for w in self._watchers:
+            w(frac, beautify_ETA(int(remaining*gst.SECOND)))
+        return False
 
 class EnvelopeExtractee(Extractee, Loggable):
     """ Class that computes the envelope of a 1-D signal
@@ -63,6 +123,7 @@ class EnvelopeExtractee(Extractee, Loggable):
         self._threshold = 2000*blocksize
         # self._leftover buffers up to blocksize-1 samples in case receive()
         # is called with a number of samples that is not divisible by blocksize
+        self._progress_watchers = []
     
     def receive(self, a):
         self._samples.extend(a)
@@ -70,6 +131,14 @@ class EnvelopeExtractee(Extractee, Loggable):
             return
         else:
             self._process_samples()
+    
+    def addWatcher(self, w):
+        """ Add a function to call with progress updates.
+        
+        @param w: callback function
+        @type w: function(# of samples received so far)
+        """
+        self._progress_watchers.append(w)
     
     def _process_samples(self):
         excess = len(self._samples) % self._blocksize
@@ -86,6 +155,8 @@ class EnvelopeExtractee(Extractee, Loggable):
         self._blocks[-newblocks:] = numpy.sum(a,1)
         # Relies on a being a floating-point type. If a is int16 then the sum
         # may overflow.
+        for w in self._progress_watchers:
+            w(self._blocksize*len(self._blocks) + excess)
         
     def finalize(self):
         self._process_samples() # absorb any remaining buffered samples
@@ -127,6 +198,12 @@ class AutoAligner(Loggable):
             self._performShifts() 
     
     def start(self):
+        """ Initiate the auto-alignment process
+        
+        @returns: a L{ProgressMeter} indicating the progress of the alignment
+        @rtype: L{ProgressMeter}
+        """
+        p = ProgressAggregator()
         for to in self._tos.iterkeys():
             a = self._getAudioTrack(to)
             if a is None:
@@ -134,8 +211,11 @@ class AutoAligner(Loggable):
                 continue
             blocksize = a.stream.rate//self.BLOCKRATE # in units of samples
             e = EnvelopeExtractee(blocksize, self._envelopeCb, to)
+            numsamples = (a.duration/gst.SECOND)*a.stream.rate
+            e.addWatcher(p.getPortionCB(numsamples))
             r = RandomAccessAudioExtractor(a.factory, a.stream)
             r.extract(e, a.in_point, a.out_point - a.in_point)
+        return p
     
     def _chooseTemplate(self):
         # chooses the timeline object with lowest priority as the template

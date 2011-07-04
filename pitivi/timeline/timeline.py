@@ -1966,9 +1966,13 @@ class Timeline(Signallable, Loggable):
         
         @param callback: function to call (with no arguments) when finished.
         @type callback: function
+        @returns: a L{ProgressMeter} indicating the state of the alignment
+            process
+        @rtype: L{ProgressMeter}
         """
         a = AutoAligner(self.selection.selected, callback)
-        a.start()
+        progress_meter = a.start()
+        return progress_meter
 
     def deleteSelection(self):
         """
