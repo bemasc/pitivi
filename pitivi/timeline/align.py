@@ -218,4 +218,5 @@ class AutoAligner(Loggable):
                 # amount at the beginning.
                 movable.start = 0
                 movable.in_point = movable.in_point - newstart
+                movable.duration += newstart
         self._callback()
