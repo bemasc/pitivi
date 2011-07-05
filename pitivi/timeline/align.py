@@ -9,6 +9,18 @@ from pitivi.stream import AudioStream
 from pitivi.log.loggable import Loggable
 from pitivi.timeline.alignalgs import affinealign
 
+def call_false(f):
+    """ Helper function for calling an arbitrary function once in the gobject
+        mainloop.
+    
+    @param f: the function to call
+    @type f: function() (no arguments)
+    @returns: False
+    @rtype: bool
+    """
+    f()
+    return False
+
 def nextpow2(n):
     i = 1
     while i < n:
@@ -204,17 +216,24 @@ class AutoAligner(Loggable):
         @rtype: L{ProgressMeter}
         """
         p = ProgressAggregator()
-        for to in self._tos.iterkeys():
+        pairs = [] # (TimelineObject, {audio}TrackObject) pairs
+        for to in self._tos.keys():
             a = self._getAudioTrack(to)
-            if a is None:
-                self._tos.remove(to)
-                continue
-            blocksize = a.stream.rate//self.BLOCKRATE # in units of samples
-            e = EnvelopeExtractee(blocksize, self._envelopeCb, to)
-            numsamples = (a.duration/gst.SECOND)*a.stream.rate
-            e.addWatcher(p.getPortionCB(numsamples))
-            r = RandomAccessAudioExtractor(a.factory, a.stream)
-            r.extract(e, a.in_point, a.out_point - a.in_point)
+            if a is not None:
+                pairs.append((to,a))
+            else:
+                self._tos.pop(to)
+        if len(pairs) >= 2:
+            for to, a in pairs:
+                blocksize = a.stream.rate//self.BLOCKRATE # in units of samples
+                e = EnvelopeExtractee(blocksize, self._envelopeCb, to)
+                numsamples = (a.duration/gst.SECOND)*a.stream.rate
+                e.addWatcher(p.getPortionCB(numsamples))
+                r = RandomAccessAudioExtractor(a.factory, a.stream)
+                r.extract(e, a.in_point, a.out_point - a.in_point)
+        else: #We can't do anything without at least two audio tracks
+            # After we return, call the callback function (once)
+            gobject.idle_add(call_false, self._callback)
         return p
     
     def _chooseTemplate(self):
