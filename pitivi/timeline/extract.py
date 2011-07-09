@@ -24,6 +24,7 @@
 Classes for extracting decoded contents of streams into Python
 """
 
+import gst
 from pitivi.elements.singledecodebin import SingleDecodeBin
 from pitivi.elements.extractionsink import ExtractionSink
 from pitivi.log.loggable import Loggable
