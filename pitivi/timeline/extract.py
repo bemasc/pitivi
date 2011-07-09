@@ -102,7 +102,6 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
     inspired by L{RandomAccessAudioPreviewer}."""
 
     def __init__(self, factory, stream_):
-        self.tdur = 30 * gst.SECOND
         self._queue = []
         RandomAccessExtractor.__init__(self, factory, stream_)
         self._ready = False
