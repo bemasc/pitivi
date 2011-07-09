@@ -1,8 +1,9 @@
 # PiTiVi , Non-linear video editor
 #
-#       ui/mainwindow.py
+#       ui/alignmentprogress.py
 #
 # Copyright (c) 2010, Brandon Lewis <brandon.lewis@collabora.co.uk>
+# Copyright (c) 2011, Benjamin M. Schwartz <bens@alum.mit.edu>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -31,7 +32,12 @@ from gettext import gettext as _
 import gobject
 from pitivi.signalinterface import Signallable
 
-class AlignmentProgressDialog():
+
+class AlignmentProgressDialog:
+    """ Dialog indicating the progress of the auto-alignment process.
+        Code derived from L{EncodingProgressDialog}, but greatly simplified
+        (read-only, no buttons)."""
+
     def __init__(self, app, parent):
         self.app = app
         self.builder = gtk.Builder()

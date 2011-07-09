@@ -1,8 +1,9 @@
 # PiTiVi , Non-linear video editor
 #
-#       pitivi/elements/arraysink.py
+#       pitivi/elements/extractionsink.py
 #
 # Copyright (c) 2005, Edward Hervey <bilboed@bilboed.com>
+# Copyright (c) 2011, Benjamin M. Schwartz <bens@alum.mit.edu>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -18,8 +19,9 @@
 # License along with this program; if not, write to the
 # Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
 # Boston, MA 02110-1301, USA.
+
 """
-Stores audio samples in an array for plotting waveforms
+Extract audio samples without without storing the whole waveform in memory
 """
 
 import gobject
@@ -29,8 +31,8 @@ import gtk
 import array
 from pitivi.utils import native_endianness
 
-class ExtractionSink(gst.BaseSink):
 
+class ExtractionSink(gst.BaseSink):
     """
     Passes audio data directly to a provided L{Extractee}
     """
@@ -39,17 +41,14 @@ class ExtractionSink(gst.BaseSink):
         "endianness = (int) %s, "
         "channels = (int) 1,"
         "rate = (int) [1, 96000]"
-        % native_endianness
-    )
+        % native_endianness)
 
     __gsttemplates__ = (
         gst.PadTemplate(
             "sink",
             gst.PAD_SINK,
             gst.PAD_ALWAYS,
-            caps
-       ),
-    )
+            caps),)
 
     def __init__(self):
         gst.BaseSink.__init__(self)
@@ -57,7 +56,7 @@ class ExtractionSink(gst.BaseSink):
         self.rate = 0
         self.channels = 0
         self.reset()
-    
+
     def set_extractee(self, e):
         self.extractee = e
 
@@ -74,7 +73,7 @@ class ExtractionSink(gst.BaseSink):
 
     def do_render(self, buf):
         if self.extractee is not None:
-            self.extractee.receive(array.array('f',buf.data))
+            self.extractee.receive(array.array('f', buf.data))
         return gst.FLOW_OK
 
     def do_preroll(self, buf):
