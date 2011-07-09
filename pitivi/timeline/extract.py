@@ -111,10 +111,14 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         self.spacing = 0
 
         self.audioSink = ExtractionSink()
+        # fixup ensure that the extracted raw-data timeline matches
+        # the timestamps used for seeking.
+        fixup = gst.element_factory_make("audiorate")
         conv = gst.element_factory_make("audioconvert")
         q = gst.element_factory_make("queue")
         self.audioPipeline = utils.pipeline({
-            sbin: conv,
+            sbin: fixup,
+            fixup: conv,
             conv: q,
             q: self.audioSink,
             self.audioSink: None})
