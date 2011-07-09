@@ -90,7 +90,7 @@ class ProgressAggregator(ProgressMeter):
             (in arbitrary units, but should be consistent across all calls on
             a single ProgressAggregator object), it returns a callback that
             can be used to update progress on this portion of the task.
-............
+
             @param target: the total task size for this portion
             @type target: number
             @returns: a callback that can be used to inform the Aggregator of subsequent
