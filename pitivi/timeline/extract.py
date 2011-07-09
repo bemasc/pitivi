@@ -4,22 +4,24 @@ from pitivi.elements.extractionsink import ExtractionSink
 from pitivi.log.loggable import Loggable
 import pitivi.utils as utils
 
+
 class Extractee:
     """ Abstract base class for objects that receive raw data from an
         L{Extractor}."""
-        
+
     def receive(self, array):
         """ Receive a chunk of data from an Extractor.
-        
+
         @param array: The chunk of data as an array
         @type array: any kind of numeric array
         """
         raise NotImplementedError
-    
+
     def finalize(self):
         """ Indicates that the extraction is complete, so the Extractee should
             process the data it has received. """
         raise NotImplementedError
+
 
 class Extractor(Loggable):
     """ Abstract base class for extraction of raw data from a stream.
@@ -27,7 +29,7 @@ class Extractor(Loggable):
 
     def __init__(self, factory, stream_):
         """ Create a new Extractor.
-        
+
         @param factory: the factory with which to decode the stream
         @type factory: L{ObjectFactory}
         @param stream_: the stream to decode
@@ -38,7 +40,7 @@ class Extractor(Loggable):
 
     def extract(self, e, start, duration):
         """ Extract the raw data corresponding to a segment of the stream.
-        
+
         @param e: the L{Extractee} that will receive the raw data
         @type e: L{Extractee}
         @param start: The point in the stream at which the segment starts (nanoseconds)
@@ -47,9 +49,11 @@ class Extractor(Loggable):
         @type duration: L{long}"""
         raise NotImplementedError
 
+
 class RandomAccessExtractor(Extractor):
     """ Abstract class for L{Extractor}s of random access streams, closely
     inspired by L{RandomAccessPreviewer}."""
+
     def __init__(self, factory, stream_):
         Extractor.__init__(self, factory, stream_)
         # FIXME:
@@ -66,6 +70,7 @@ class RandomAccessExtractor(Extractor):
         override this method and create a pipeline, connecting to callbacks to
         the appropriate signals, and prerolling the pipeline if necessary."""
         raise NotImplementedError
+
 
 class RandomAccessAudioExtractor(RandomAccessExtractor):
     """L{Extractor} for random access audio streams, closely
@@ -84,10 +89,10 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         conv = gst.element_factory_make("audioconvert")
         q = gst.element_factory_make("queue")
         self.audioPipeline = utils.pipeline({
-            sbin : conv,
-            conv : q,
-            q : self.audioSink,
-            self.audioSink : None})
+            sbin: conv,
+            conv: q,
+            q: self.audioSink,
+            self.audioSink: None})
         bus = self.audioPipeline.get_bus()
         bus.add_signal_watch()
         bus.connect("message::segment-done", self._busMessageSegmentDoneCb)
@@ -115,9 +120,9 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
 
     def _busMessageAsyncDoneCb(self, bus, message):
         self.debug("Pipeline is ready for seeking")
-        bus.disconnect(self._donecb_id) #Don't call me again
+        bus.disconnect(self._donecb_id)  # Don't call me again
         self._ready = True
-        if len(self._queue) > 0: #Someone called .extract() before we were ready
+        if self._queue:  # Someone called .extract() before we were ready
             self._run()
 
     def _startSegment(self, timestamp, duration):
@@ -141,7 +146,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         # If there's more to do, keep running
         if len(self._queue) > 0:
             self._run()
-    
+
     def extract(self, e, start, duration):
         stopped = len(self._queue) == 0
         self._queue.append((e, start, duration))
@@ -149,7 +154,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
             self._run()
         # if self._ready is False, self._run() will be called from
         # self._busMessageDoneCb().
-    
+
     def _run(self):
         # Control flows in a cycle:
         # _run -> _startSegment -> busMessageSegmentDoneCb -> _finishSegment -> _run
@@ -160,4 +165,3 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         e, start, duration = self._queue[0]
         self.audioSink.set_extractee(e)
         self._startSegment(start, duration)
-            
