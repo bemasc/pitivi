@@ -7,7 +7,7 @@ from pitivi.utils import beautify_ETA
 from pitivi.timeline.extract import Extractee, RandomAccessAudioExtractor
 from pitivi.stream import AudioStream
 from pitivi.log.loggable import Loggable
-from pitivi.timeline.alignalgs import affinealign
+from pitivi.timeline.alignalgs import rigidalign
 
 def call_false(f):
     """ Helper function for calling an arbitrary function once in the gobject
@@ -21,36 +21,18 @@ def call_false(f):
     f()
     return False
 
-def nextpow2(n):
-    i = 1
-    while i < n:
-        i *= 2
-    return i
-
-def submax(left,middle,right):
-    """Given samples from a quadratic P(x) at x=-1, 0, and 1, find the x
-    that maximizes P.  This is useful for determining the subsample position of
-    the maximum given three samples around the observed maximum.
+def getAudioTrack(to):
+    """ Helper function for getting an audio track from a TimelineObject
     
-    @param left: value at x=-1
-    @type left: L{float}
-    @param middle: value at x=0
-    @type middle: L{float}
-    @param right: value at x=1
-    @type right: L{float}
-    @returns: value of x that extremizes the interpolating quadratic
-    @rtype: L{float}"""
-    L = middle - left #  L and R are both positive because middle is the
-    R = middle - right # observed max of the integer samples
-    # 
-    # q(x) = bx*(x-a) #b is negative, a may be positive or negative
-    # b*(1 - a) = R
-    # b*(1 + a) = L
-    # (1+a)/(1-a) = L/R
-    # a + 1 = R/L - (R/L)*a
-    # a*(1+R/L) = R/L - 1
-    # a = (R/L - 1)/(R/L + 1) = (R-L)/(R+L)
-    return 0.5*(R-L)/(R+L) #max is halfway between the two roots
+    @param to: The TimelineObject from which to locate an audio track
+    @type to: L{TimelineObject}
+    @returns: An audio track from to, or None if to has no audio track
+    @rtype: audio L{TrackObject} or L{NoneType}
+    """
+    for track in to.track_objects:
+        if track.stream_type == AudioStream:
+            return track
+    return None
 
 class ProgressMeter:
     """ Abstract interface representing a progress meter. """
@@ -180,13 +162,6 @@ class AutoAligner(Loggable):
         their contents. """
     BLOCKRATE = 25
 
-    @staticmethod
-    def _getAudioTrack(to):
-        for track in to.track_objects:
-            if track.stream_type == AudioStream:
-                return track
-        return None
-
     def __init__(self, tobjects, callback):
         """
         @param tobjects: an iterable of L{TimelineObject}s.
@@ -207,7 +182,8 @@ class AutoAligner(Loggable):
         self.debug("Receiving envelope for %s", to)
         self._tos[to] = array
         if not None in self._tos.itervalues(): # This was the last envelope
-            self._performShifts() 
+            self._performShifts()
+            self._callback()
     
     def start(self):
         """ Initiate the auto-alignment process
@@ -218,7 +194,7 @@ class AutoAligner(Loggable):
         p = ProgressAggregator()
         pairs = [] # (TimelineObject, {audio}TrackObject) pairs
         for to in self._tos.keys():
-            a = self._getAudioTrack(to)
+            a = getAudioTrack(to)
             if a is not None:
                 pairs.append((to,a))
             else:
@@ -241,73 +217,23 @@ class AutoAligner(Loggable):
         def priority(to): return to.priority
         return min(self._tos.iterkeys(), key=priority)
     
-    def _performAlignment(self):
-        self.debug("performing alignment")
-        template = self._chooseTemplate()
-        tenv = self._tos.pop(template)
-        # tenv is the envelope of template.  pop() also removes tenv and
-        # template from future consideration.
-        pairs = list(self._tos.iteritems())
-        movables = [to for to,e in pairs]
-        envelopes = [e for to,e in pairs]
-        offsets, drifts = affinealign(tenv, envelopes, 0.015)
-        for i in xrange(len(pairs)):
-            # center_offset is the offset necessary to position the
-            # middle of TimelineObject i correctly in the reference.
-            # If we do not have the ability to speed up or slow down clips,
-            # then this is the best shift to minimize the maximum error
-            center_offset = offsets[i] + drifts[i]*len(envelopes[i])/2
-            tshift = int((center_offset * int(1e9))/self.BLOCKRATE)
-            # tshift is the offset rescaled to units of nanoseconds
-            self.debug("Shifting %s to %i ns from %i", 
-                             movables[i], tshift, template.start)
-            newstart = template.start + tshift
-            if newstart >= 0:
-                movables[i].start = newstart
-            else:
-                # Timeline objects always must have a positive start point, so
-                # if alignment would move an object to start at negative time,
-                # we instead make it start at zero and chop off the required
-                # amount at the beginning.
-                movables[i].start = 0
-                movables[i].in_point = movables[i].in_point - newstart
-        self._callback()
-
     def _performShifts(self):
         self.debug("performing shifts")
         template = self._chooseTemplate()
         tenv = self._tos.pop(template)
         # tenv is the envelope of template.  pop() also removes tenv and
         # template from future consideration.
-        # L is the maximum size of a cross-correlation between tenv and any of
-        # the other envelopes.
-        L = len(tenv) + max(len(e) for e in self._tos.itervalues()) - 1
-        # We round up L to the next power of 2 for speed in the FFT.
-        L = nextpow2(L)
-        tenv -= numpy.mean(tenv)
-        tenv = numpy.fft.rfft(tenv, L).conj()
-        for movable, menv in self._tos.iteritems():
-            # Estimates the relative shift between movable and template
-            # by locating the maximum of the cross-correlation of their
-            # (mean-subtracted) envelopes.
-            menv -= numpy.mean(menv)
-            # Compute cross-correlation
-            xcorr = numpy.fft.irfft(tenv*numpy.fft.rfft(menv, L))
-            #xcorr.tofile('/tmp/xc%s' % movable)
-            p = numpy.argmax(xcorr)
-            # p is the shift, in units of blocks, that maximizes xcorr
-            # WARNING: p may be a numpy.int32, not a python integer
-            pfrac = submax(xcorr[(p-1) % L], xcorr[p], xcorr[(p+1) % L])
-            p = p + pfrac #p is now a float indicating the interpolated maximum
-            # For well-behaved samples this should allow us to achieve
-            # accuracy substantially better than 1/BLOCKRATE.
-            if p >= len(menv): # Negative shifts appear large and positive
-                p -= L # This corrects them to be negative
-            tshift = int((p * 1e9)/self.BLOCKRATE)
-            # tshift is p rescaled to units of nanoseconds
+        pairs = list(self._tos.items())
+        # We call list() because we need a reliable ordering of the pairs
+        # (In python 3, dict.items() returns an unordered dictview)
+        envelopes = [p[1] for p in pairs]
+        offsets = rigidalign(tenv, envelopes)
+        for (movable, envelope), offset in zip(pairs, offsets):
+            tshift = int((offset * gst.SECOND)/self.BLOCKRATE)
+            # tshift is the offset rescaled to units of nanoseconds
             self.debug("Shifting %s to %i ns from %i", 
                              movable, tshift, template.start)
-            newstart = template.start - tshift
+            newstart = template.start + tshift
             if newstart >= 0:
                 movable.start = newstart
             else:
@@ -318,4 +244,3 @@ class AutoAligner(Loggable):
                 movable.start = 0
                 movable.in_point = movable.in_point - newstart
                 movable.duration += newstart
-        self._callback()

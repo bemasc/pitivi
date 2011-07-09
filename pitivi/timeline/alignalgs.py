@@ -4,8 +4,75 @@ def nextpow2(x):
     while a < x: a *= 2
     return a
 
+def submax(left,middle,right):
+    """Given samples from a quadratic P(x) at x=-1, 0, and 1, find the x
+    that extremizes P.  This is useful for determining the subsample position of
+    the extremum given three samples around the observed extreme.
+    
+    @param left: value at x=-1
+    @type left: L{float}
+    @param middle: value at x=0
+    @type middle: L{float}
+    @param right: value at x=1
+    @type right: L{float}
+    @returns: value of x that extremizes the interpolating quadratic
+    @rtype: L{float}"""
+    L = middle - left #  L and R are both positive if middle is the
+    R = middle - right # observed max of the integer samples
+    return 0.5*(R-L)/(R+L)
+    # Derivation: Consider a quadratic q(x) := P(0) - P(x).  Then q(x) has
+    # two roots, one at 0 and one at z, and the extreme is halfway between them
+    # (i.e. at z/2)
+    # q(x) = bx*(x-z) # a may be positive or negative
+    # q(1) = b*(1 - z) = R
+    # q(-1) = b*(1 + z) = L
+    # (1+z)/(1-z) = L/R  (from here it's just algebra to find a)
+    # z + 1 = R/L - (R/L)*z
+    # z*(1+R/L) = R/L - 1
+    # z = (R/L - 1)/(R/L + 1) = (R-L)/(R+L)
+
+def rigidalign(reference, targets):
+        """ Estimates the relative shift between reference and templates
+            by locating the maximum of their (mean-subtracted) cross-correlation
+            
+            @param reference: the waveform to regard as fixed
+            @type reference: Sequence
+            @param targets: the waveforms that should be aligned to reference
+            @type targets: Sequence(Sequence)
+            @returns: The shift necessary to bring each target into alignment
+                with the reference.  The returned shift may not be an integer,
+                indicating that the best alignment would be achieved by a
+                non-integer shift and appropriate interpolation.
+            @rtype: Sequence(number)
+        """
+        # L is the maximum size of a cross-correlation between the
+        # reference and any of the targets.
+        L = len(reference) + max(len(t) for t in targets) - 1
+        # We round up L to the next power of 2 for speed in the FFT.
+        L = nextpow2(L)
+        reference = reference - numpy.mean(reference)
+        fref = numpy.fft.rfft(reference, L).conj()
+        shifts = []
+        for t in targets:
+            t = t - numpy.mean(t)
+            # Compute cross-correlation
+            xcorr = numpy.fft.irfft(fref*numpy.fft.rfft(t, L))
+            shift = int(numpy.argmax(xcorr))
+            # shift maximizes dotproduct(t[shift:],reference)
+            # int() to convert numpy.int32 to python int
+            subsample_shift = submax(xcorr[(shift-1) % L], 
+                                     xcorr[shift],
+                                     xcorr[(shift+1) % L])
+            shift = shift + subsample_shift
+            # shift is now a float indicating the interpolated maximum
+            if shift >= len(t): # Negative shifts appear large and positive
+                shift -= L      # This corrects them to be negative
+            shifts.append(-shift)
+            #Sign reversed to move the target instead of the reference
+        return shifts
+
 def _findslope(a):
-    # Helper function for driftalign
+    # Helper function for affinealign
     # The provided matrix a contains a bright line whose slope we want to know,
     # against a noisy background.
     # The line starts at 0,0.  If the slope is positive, it runs toward the
@@ -37,9 +104,16 @@ def _findslope(a):
     return float(best_end)/X
 
 def affinealign(reference, targets, max_drift=0.02):
-    """ Perform an affine registration between a reference and a number of 
+    """ EXPERIMENTAL FUNCTION.
+    
+    Perform an affine registration between a reference and a number of 
     targets.  Designed for aligning the amplitude envelopes of recordings of
     the same event by different devices.
+    
+    NOTE: This method is currently NOT USED by PiTiVi, as it has proven both
+    unnecessary and unusable.  So far every test case has been registered
+    successfully by rigidalign, and until PiTiVi supports time-stretching of
+    audio, the drift calculation cannot actually be used.
     
     @param reference: the reference signal to which others will be registered
     @type reference: array(number)
@@ -158,6 +232,7 @@ def affinealign(reference, targets, max_drift=0.02):
     return offsets, drifts
 
 if __name__ == '__main__':
+    # Simple command-line test
     from sys import argv
     names = argv[1:]
     envelopes = [numpy.fromfile(n) for n in names]
