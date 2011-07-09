@@ -65,7 +65,7 @@ UNLINK = _("Break links between clips")
 LINK = _("Link together arbitrary clips")
 UNGROUP = _("Ungroup clips")
 GROUP = _("Group clips")
-ALIGN = _("Align clips based on content")
+ALIGN = _("Align clips based on their soundtracks")
 SELECT_BEFORE = ("Select all sources before selected")
 SELECT_AFTER = ("Select all after selected")
 
