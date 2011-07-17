@@ -28,24 +28,11 @@ import array
 import time
 import gobject
 import gst
-from pitivi.utils import beautify_ETA
+from pitivi.utils import beautify_ETA, call_false
 from pitivi.timeline.extract import Extractee, RandomAccessAudioExtractor
 from pitivi.stream import AudioStream
 from pitivi.log.loggable import Loggable
 from pitivi.timeline.alignalgs import rigidalign
-
-
-def call_false(f):
-    """ Helper function for calling an arbitrary function once in the gobject
-        mainloop.
-
-    @param f: the function to call
-    @type f: function() (no arguments)
-    @returns: False
-    @rtype: bool
-    """
-    f()
-    return False
 
 
 def getAudioTrack(to):
@@ -210,11 +197,20 @@ class AutoAligner(Loggable):
         # self._tos maps each object to its envelope.  The values are initially
         # None prior to envelope computation.
         self._callback = callback
+        self._envelope_stack = []
+        # stack of (Track, Extractee) pairs waiting to be processed
+        # When start() is called, the stack will be populated, and then
+        # processed sequentially.  Only one item from the stack will be
+        # actively in process at a time.
 
     def _envelopeCb(self, array, to):
         self.debug("Receiving envelope for %s", to)
         self._tos[to] = array
-        if not None in self._tos.itervalues():  # This was the last envelope
+        if self._envelope_stack:
+            a, e = self._envelope_stack.pop()
+            r = RandomAccessAudioExtractor(a.factory, a.stream)
+            r.extract(e, a.in_point, a.out_point - a.in_point)
+        else:  # This was the last envelope
             self._performShifts()
             self._callback()
 
@@ -238,8 +234,10 @@ class AutoAligner(Loggable):
                 e = EnvelopeExtractee(blocksize, self._envelopeCb, to)
                 numsamples = (a.duration / gst.SECOND) * a.stream.rate
                 e.addWatcher(p.getPortionCB(numsamples))
-                r = RandomAccessAudioExtractor(a.factory, a.stream)
-                r.extract(e, a.in_point, a.out_point - a.in_point)
+                self._envelope_stack.append((a, e))
+            a, e = self._envelope_stack.pop()
+            r = RandomAccessAudioExtractor(a.factory, a.stream)
+            r.extract(e, a.in_point, a.out_point - a.in_point)
         else:  # We can't do anything without at least two audio tracks
             # After we return, call the callback function (once)
             gobject.idle_add(call_false, self._callback)
