@@ -111,6 +111,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         self.spacing = 0
 
         self.audioSink = ExtractionSink()
+        self.audioSink.set_stopped_cb(self._finishSegment)
         # This audiorate element ensures that the extracted raw-data timeline
         # matches the timestamps used for seeking, even if the audio source has
         # gaps or other timestamp abnormalities.
@@ -125,7 +126,6 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
             self.audioSink: None})
         bus = self.audioPipeline.get_bus()
         bus.add_signal_watch()
-        bus.connect("message::segment-done", self._busMessageSegmentDoneCb)
         bus.connect("message::error", self._busMessageErrorCb)
         self._donecb_id = bus.connect("message::async-done",
                                                 self._busMessageAsyncDoneCb)
@@ -137,10 +137,6 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         # state (STATE_PAUSED).  To ensure that this is the case, we wait until
         # the ASYNC_DONE message is received before setting self._ready = True,
         # which enables extraction to proceed.
-
-    def _busMessageSegmentDoneCb(self, bus, message):
-        self.debug("segment done")
-        self._finishSegment()
 
     def _busMessageErrorCb(self, bus, message):
         error, debug = message.parse_error()
@@ -160,7 +156,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
                                                             timestamp, duration)
         res = self.audioPipeline.seek(1.0,
             gst.FORMAT_TIME,
-            gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE | gst.SEEK_FLAG_SEGMENT,
+            gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE,
             gst.SEEK_TYPE_SET, timestamp,
             gst.SEEK_TYPE_SET, timestamp + duration)
         if not res:

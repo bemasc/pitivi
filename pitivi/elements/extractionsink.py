@@ -29,7 +29,7 @@ gobject.threads_init()
 import gst
 import gtk
 import array
-from pitivi.utils import native_endianness
+from pitivi.utils import native_endianness, call_false
 
 
 class ExtractionSink(gst.BaseSink):
@@ -56,9 +56,13 @@ class ExtractionSink(gst.BaseSink):
         self.rate = 0
         self.channels = 0
         self.reset()
+        self._cb = None
 
     def set_extractee(self, e):
         self.extractee = e
+
+    def set_stopped_cb(self, cb):
+        self._cb = cb
 
     def reset(self):
         self.samples = array.array('f')
@@ -77,6 +81,13 @@ class ExtractionSink(gst.BaseSink):
         return gst.FLOW_OK
 
     def do_preroll(self, buf):
+        return gst.FLOW_OK
+
+    def do_event(self, ev):
+        self.info("Got event of type %s" % ev.type)
+        if ev.type == gst.EVENT_EOS:
+            if self._cb:
+                gobject.idle_add(call_false, self._cb)
         return gst.FLOW_OK
 
 gobject.type_register(ExtractionSink)

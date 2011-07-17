@@ -108,6 +108,19 @@ def beautify_ETA(length):
     return ", ".join(parts)
 
 
+def call_false(f):
+    """ Helper function for calling an arbitrary function once in the gobject
+        mainloop.
+
+    @param f: the function to call
+    @type f: function() (no arguments)
+    @returns: False
+    @rtype: bool
+    """
+    f()
+    return False
+
+
 def bin_contains(bin, element):
     """ Returns True if the bin contains the given element, the search is recursive """
     if not isinstance(bin, gst.Bin):
