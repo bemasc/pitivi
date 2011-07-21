@@ -193,23 +193,25 @@ class AutoAligner(Loggable):
         @type callback: function
         """
         Loggable.__init__(self)
-        self._tos = dict.fromkeys(tobjects)
         # self._tos maps each object to its envelope.  The values are initially
         # None prior to envelope computation.
+        self._tos = dict.fromkeys(tobjects)
         self._callback = callback
-        self._envelope_stack = []
         # stack of (Track, Extractee) pairs waiting to be processed
         # When start() is called, the stack will be populated, and then
         # processed sequentially.  Only one item from the stack will be
         # actively in process at a time.
+        self._envelope_stack = []
 
     def _envelopeCb(self, array, to):
         self.debug("Receiving envelope for %s", to)
         self._tos[to] = array
-        if self._envelope_stack:
-            a, e = self._envelope_stack.pop()
-            r = RandomAccessAudioExtractor(a.factory, a.stream)
-            r.extract(e, a.in_point, a.out_point - a.in_point)
+        if self._envelope_stack:  # extract an envelope from the next track
+            audiotrack, extractee = self._envelope_stack.pop()
+            r = RandomAccessAudioExtractor(audiotrack.factory,
+                                                              audiotrack.stream)
+            r.extract(extractee, audiotrack.in_point,
+                                     audiotrack.out_point - audiotrack.in_point)
         else:  # This was the last envelope
             self._performShifts()
             self._callback()
@@ -223,21 +225,28 @@ class AutoAligner(Loggable):
         p = ProgressAggregator()
         pairs = []  # (TimelineObject, {audio}TrackObject) pairs
         for to in self._tos.keys():
-            a = getAudioTrack(to)
-            if a is not None:
-                pairs.append((to, a))
-            else:
+            audiotrack = getAudioTrack(to)
+            if audiotrack is not None:
+                pairs.append((to, audiotrack))
+            else:  # forget any TimelineObject (to) without an audio track
                 self._tos.pop(to)
         if len(pairs) >= 2:
-            for to, a in pairs:
-                blocksize = a.stream.rate // self.BLOCKRATE  # in # of samples
-                e = EnvelopeExtractee(blocksize, self._envelopeCb, to)
-                numsamples = (a.duration / gst.SECOND) * a.stream.rate
-                e.addWatcher(p.getPortionCB(numsamples))
-                self._envelope_stack.append((a, e))
-            a, e = self._envelope_stack.pop()
-            r = RandomAccessAudioExtractor(a.factory, a.stream)
-            r.extract(e, a.in_point, a.out_point - a.in_point)
+            for to, audiotrack in pairs:
+                # blocksize is the number of samples per block
+                blocksize = audiotrack.stream.rate // self.BLOCKRATE
+                extractee = EnvelopeExtractee(blocksize, self._envelopeCb, to)
+                # numsamples is the total number of samples in the track,
+                # which is used by the ProgressAggregator (p) to determine
+                # the percent completion.
+                numsamples = ((audiotrack.duration / gst.SECOND) *
+                                                         audiotrack.stream.rate)
+                extractee.addWatcher(p.getPortionCB(numsamples))
+                self._envelope_stack.append((audiotrack, extractee))
+            audiotrack, extractee = self._envelope_stack.pop()
+            r = RandomAccessAudioExtractor(audiotrack.factory,
+                                                              audiotrack.stream)
+            r.extract(extractee, audiotrack.in_point,
+                                     audiotrack.out_point - audiotrack.in_point)
         else:  # We can't do anything without at least two audio tracks
             # After we return, call the callback function (once)
             gobject.idle_add(call_false, self._callback)
