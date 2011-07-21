@@ -108,16 +108,17 @@ def beautify_ETA(length):
     return ", ".join(parts)
 
 
-def call_false(f):
+def call_false(f, *args, **kwargs):
     """ Helper function for calling an arbitrary function once in the gobject
-        mainloop.
+        mainloop.  Any positional or keyword arguments after the function will
+        be provided to the function.
 
     @param f: the function to call
-    @type f: function() (no arguments)
+    @type f: function({any args})
     @returns: False
     @rtype: bool
     """
-    f()
+    f(*args, **kwargs)
     return False
 
 
