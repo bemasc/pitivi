@@ -124,9 +124,9 @@ class EnvelopeExtractee(Extractee, Loggable):
         @param blocksize: the number of samples in a block
         @type blocksize: L{int}
         @param callback: a function to call when the extraction is complete.
-           The function's first argument will be a numpy array representing
-           the envelope, and any later argument to this function will be passed
-           as subsequent arguments to callback.
+            The function's first argument will be a numpy array
+            representing the envelope, and any later argument to this
+            function will be passed as subsequent arguments to callback.
         """
         Loggable.__init__(self)
         self._blocksize = blocksize
