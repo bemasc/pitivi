@@ -38,8 +38,7 @@ class AlignmentProgressDialog:
         Code derived from L{EncodingProgressDialog}, but greatly simplified
         (read-only, no buttons)."""
 
-    def __init__(self, app, parent):
-        self.app = app
+    def __init__(self, app):
         self.builder = gtk.Builder()
         self.builder.add_from_file(os.path.join(configure.get_ui_dir(),
             "alignmentprogress.ui"))
@@ -47,9 +46,13 @@ class AlignmentProgressDialog:
 
         self.window = self.builder.get_object("align-progress")
         self.progressbar = self.builder.get_object("progressbar")
-        # Parent the dialog with mainwindow, since encodingdialog is hidden.
-        # It allows this dialog to properly minimize together with mainwindow
-        self.window.set_transient_for(self.app)
+        # Parent this dialog with mainwindow
+        # set_transient_for is supposed to allow this dialog to properly
+        # minimize together with the mainwindow.  This method is identical to
+        # that used in EncodingProgressDialog.
+        # FIXME: it does not work here, nor does it work in
+        # EncodingProgressDialog (bug #652917)
+        self.window.set_transient_for(app.gui)
 
         # UI widgets
         # We currently reuse the render icon for this dialog.

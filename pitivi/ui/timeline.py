@@ -808,7 +808,7 @@ class Timeline(gtk.Table, Loggable, Zoomable):
 
     def alignSelected(self, unused_action):
         if self.timeline:
-            self._progress_dialog = AlignmentProgressDialog(self.app.gui, None)
+            self._progress_dialog = AlignmentProgressDialog(self.app)
             self._progress_dialog.window.show()
             self.app.action_log.begin("align")
             self.timeline.disableUpdates()
