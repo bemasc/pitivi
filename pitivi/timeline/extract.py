@@ -22,13 +22,15 @@
 
 """
 Classes for extracting decoded contents of streams into Python
+
+Code derived from ui/previewer.py.
 """
 
 import gst
 from pitivi.elements.singledecodebin import SingleDecodeBin
 from pitivi.elements.extractionsink import ExtractionSink
 from pitivi.log.loggable import Loggable
-import pitivi.utils as utils
+from pitivi.utils import pipeline
 
 
 class Extractee:
@@ -118,7 +120,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         audiorate = gst.element_factory_make("audiorate")
         conv = gst.element_factory_make("audioconvert")
         q = gst.element_factory_make("queue")
-        self.audioPipeline = utils.pipeline({
+        self.audioPipeline = pipeline({
             sbin: audiorate,
             audiorate: conv,
             conv: q,
