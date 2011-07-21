@@ -220,9 +220,9 @@ class AutoAligner(Loggable):
         if self._extraction_stack:  # extract an envelope from the next track
             audiotrack, extractee = self._extraction_stack.pop()
             r = RandomAccessAudioExtractor(audiotrack.factory,
-                                                              audiotrack.stream)
+                                           audiotrack.stream)
             r.extract(extractee, audiotrack.in_point,
-                                     audiotrack.out_point - audiotrack.in_point)
+                      audiotrack.out_point - audiotrack.in_point)
         else:  # This was the last envelope
             self._performShifts()
             self._callback()
@@ -246,19 +246,19 @@ class AutoAligner(Loggable):
                 # blocksize is the number of samples per block
                 blocksize = audiotrack.stream.rate // self.BLOCKRATE
                 extractee = EnvelopeExtractee(blocksize, self._envelopeCb,
-                                                                timeline_object)
+                                              timeline_object)
                 # numsamples is the total number of samples in the track,
                 # which is used by the ProgressAggregator (p) to determine
                 # the percent completion.
                 numsamples = ((audiotrack.duration / gst.SECOND) *
-                                                         audiotrack.stream.rate)
+                              audiotrack.stream.rate)
                 extractee.addWatcher(p.getPortionCB(numsamples))
                 self._extraction_stack.append((audiotrack, extractee))
             audiotrack, extractee = self._extraction_stack.pop()
             r = RandomAccessAudioExtractor(audiotrack.factory,
-                                                              audiotrack.stream)
+                                           audiotrack.stream)
             r.extract(extractee, audiotrack.in_point,
-                                     audiotrack.out_point - audiotrack.in_point)
+                      audiotrack.out_point - audiotrack.in_point)
         else:  # We can't do anything without at least two audio tracks
             # After we return, call the callback function (once)
             gobject.idle_add(call_false, self._callback)
@@ -285,7 +285,7 @@ class AutoAligner(Loggable):
             tshift = int((offset * gst.SECOND) / self.BLOCKRATE)
             # tshift is the offset rescaled to units of nanoseconds
             self.debug("Shifting %s to %i ns from %i",
-                             movable, tshift, template.start)
+                       movable, tshift, template.start)
             newstart = template.start + tshift
             if newstart >= 0:
                 movable.start = newstart

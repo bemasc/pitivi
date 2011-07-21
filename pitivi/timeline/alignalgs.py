@@ -168,7 +168,7 @@ def affinealign(reference, targets, max_drift=0.02):
 
     # Construct FFT'd reference blocks
     freference_blocks = numpy.zeros((L2 / 2 + 1, num_blocks),
-                                                            dtype=numpy.complex)
+                                    dtype=numpy.complex)
     for i in xrange(num_blocks):
         s = i * bspace
         tmp = numpy.zeros((L2,))
@@ -183,11 +183,11 @@ def affinealign(reference, targets, max_drift=0.02):
         ft = numpy.fft.rfft(t, L2)
         #fxcorr is the FFT'd cross-correlation with the reference blocks
         fxcorr_blocks = numpy.zeros((L2 / 2 + 1, num_blocks),
-                                                            dtype=numpy.complex)
+                                    dtype=numpy.complex)
         for i in xrange(num_blocks):
             fxcorr_blocks[:, i] = ft * freference_blocks[:, i]
             fxcorr_blocks[:, i] /= numpy.sqrt(numpy.sum(
-                                                      fxcorr_blocks[:, i] ** 2))
+                    fxcorr_blocks[:, i] ** 2))
         del ft
         # At this point xcorr_blocks would show a distinct bright line, nearly
         # orthogonal to time, indicating where each of these blocks found their
@@ -223,7 +223,7 @@ def affinealign(reference, targets, max_drift=0.02):
         # Normalize each column (appears to be necessary)
         for i in xrange(2 * num_blocks):
             halfautocorr[:, i] /= numpy.sqrt(numpy.sum(
-                                                       halfautocorr[:, i] ** 2))
+                    halfautocorr[:, i] ** 2))
         #from matplotlib.pyplot import imshow,show
         #imshow(halfautocorr,interpolation='nearest',aspect='auto');show()
         drift = _findslope(halfautocorr) / bspace

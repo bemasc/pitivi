@@ -130,7 +130,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         bus.add_signal_watch()
         bus.connect("message::error", self._busMessageErrorCb)
         self._donecb_id = bus.connect("message::async-done",
-                                                self._busMessageAsyncDoneCb)
+                                      self._busMessageAsyncDoneCb)
 
         self.audioPipeline.set_state(gst.STATE_PAUSED)
         # The audiopipeline.set_state() method does not take effect immediately,
@@ -155,7 +155,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
 
     def _startSegment(self, timestamp, duration):
         self.debug("processing segment with timestamp=%i and duration=%i",
-                                                            timestamp, duration)
+                   timestamp, duration)
         res = self.audioPipeline.seek(1.0,
             gst.FORMAT_TIME,
             gst.SEEK_FLAG_FLUSH | gst.SEEK_FLAG_ACCURATE,

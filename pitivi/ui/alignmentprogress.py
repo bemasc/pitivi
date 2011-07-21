@@ -41,7 +41,7 @@ class AlignmentProgressDialog:
     def __init__(self, app):
         self.builder = gtk.Builder()
         self.builder.add_from_file(os.path.join(configure.get_ui_dir(),
-            "alignmentprogress.ui"))
+                                   "alignmentprogress.ui"))
         self.builder.connect_signals(self)
 
         self.window = self.builder.get_object("align-progress")
@@ -56,8 +56,9 @@ class AlignmentProgressDialog:
 
         # UI widgets
         # We currently reuse the render icon for this dialog.
-        self.window.set_icon_from_file(os.path.join(configure.get_pixmap_dir(),
-                                                        "pitivi-render-16.png"))
+        icon_path = os.path.join(configure.get_pixmap_dir(),
+                                 "pitivi-render-16.png")
+        self.window.set_icon_from_file(icon_path)
 
         # FIXME: Add a cancel button
 
