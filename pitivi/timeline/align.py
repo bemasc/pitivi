@@ -23,9 +23,10 @@
 Classes for automatic alignment of L{TimelineObject}s
 """
 
-import numpy
 import array
 import time
+import numpy
+
 import gobject
 import gst
 from pitivi.utils import beautify_ETA, call_false

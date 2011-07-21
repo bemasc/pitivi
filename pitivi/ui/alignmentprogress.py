@@ -25,11 +25,13 @@ Basic auto-alignment progress dialog, based on the EncodingProgressDialog
 """
 
 import os
+from gettext import gettext as _
+
+import gobject
 import gtk
 import gst
+
 import pitivi.configure as configure
-from gettext import gettext as _
-import gobject
 from pitivi.signalinterface import Signallable
 
 

@@ -24,11 +24,11 @@
 Extract audio samples without without storing the whole waveform in memory
 """
 
+import array
 import gobject
 gobject.threads_init()
 import gst
 import gtk
-import array
 from pitivi.utils import native_endianness, call_false
 
 
