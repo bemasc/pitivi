@@ -35,7 +35,7 @@ from pitivi.log.loggable import Loggable
 from pitivi.timeline.alignalgs import rigidalign
 
 
-def getAudioTrack(to):
+def getAudioTrack(timeline_object):
     """ Helper function for getting an audio track from a TimelineObject
 
     @param to: The TimelineObject from which to locate an audio track
@@ -43,7 +43,7 @@ def getAudioTrack(to):
     @returns: An audio track from to, or None if to has no audio track
     @rtype: audio L{TrackObject} or L{NoneType}
     """
-    for track in to.track_objects:
+    for track in timeline_object.track_objects:
         if track.stream_type == AudioStream:
             return track
     return None
