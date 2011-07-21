@@ -1,12 +1,14 @@
 <?xml version="1.0"?>
 <interface>
-  <!-- interface-requires gtk+ 2.6 -->
+  <requires lib="gtk+" version="2.16"/>
   <!-- interface-naming-policy toplevel-contextual -->
   <object class="GtkWindow" id="align-progress">
     <property name="border_width">12</property>
     <property name="title" translatable="yes">Auto-Alignment Starting</property>
+    <property name="resizable">False</property>
     <property name="modal">True</property>
     <property name="window_position">center-on-parent</property>
+    <property name="deletable">False</property>
     <child>
       <object class="GtkVBox" id="vbox1">
         <property name="visible">True</property>
