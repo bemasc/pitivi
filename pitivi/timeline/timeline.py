@@ -1963,7 +1963,7 @@ class Timeline(Signallable, Loggable):
         """
         Auto-align the selected set of L{TimelineObject}s based on their
         contents.  Return asynchronously, and call back when finished
-        
+
         @param callback: function to call (with no arguments) when finished.
         @type callback: function
         @returns: a L{ProgressMeter} indicating the state of the alignment
