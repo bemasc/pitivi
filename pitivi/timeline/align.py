@@ -193,32 +193,32 @@ class AutoAligner(Loggable):
     # all samplerates).
     BLOCKRATE = 25
 
-    def __init__(self, tobjects, callback):
+    def __init__(self, timeline_objects, callback):
         """
-        @param tobjects: an iterable of L{TimelineObject}s.
+        @param timeline_objects: an iterable of L{TimelineObject}s.
             In this implementation, only L{TimelineObject}s with at least one
             audio track will be aligned.
-        @type tobjects: iter(L{TimelineObject})
+        @type timeline_objects: iter(L{TimelineObject})
         @param callback: A function to call when alignment is complete.  No
             arguments will be provided.
         @type callback: function
         """
         Loggable.__init__(self)
-        # self._tos maps each object to its envelope.  The values are initially
-        # None prior to envelope computation.
-        self._tos = dict.fromkeys(tobjects)
+        # self._timeline_objects maps each object to its envelope.  The values
+        # are initially None prior to envelope extraction.
+        self._timeline_objects = dict.fromkeys(timeline_objects)
         self._callback = callback
         # stack of (Track, Extractee) pairs waiting to be processed
         # When start() is called, the stack will be populated, and then
         # processed sequentially.  Only one item from the stack will be
         # actively in process at a time.
-        self._envelope_stack = []
+        self._extraction_stack = []
 
-    def _envelopeCb(self, array, to):
-        self.debug("Receiving envelope for %s", to)
-        self._tos[to] = array
-        if self._envelope_stack:  # extract an envelope from the next track
-            audiotrack, extractee = self._envelope_stack.pop()
+    def _envelopeCb(self, array, timeline_object):
+        self.debug("Receiving envelope for %s", timeline_object)
+        self._timeline_objects[timeline_object] = array
+        if self._extraction_stack:  # extract an envelope from the next track
+            audiotrack, extractee = self._extraction_stack.pop()
             r = RandomAccessAudioExtractor(audiotrack.factory,
                                                               audiotrack.stream)
             r.extract(extractee, audiotrack.in_point,
@@ -235,25 +235,26 @@ class AutoAligner(Loggable):
         """
         p = ProgressAggregator()
         pairs = []  # (TimelineObject, {audio}TrackObject) pairs
-        for to in self._tos.keys():
-            audiotrack = getAudioTrack(to)
+        for timeline_object in self._timeline_objects.keys():
+            audiotrack = getAudioTrack(timeline_object)
             if audiotrack is not None:
-                pairs.append((to, audiotrack))
-            else:  # forget any TimelineObject (to) without an audio track
-                self._tos.pop(to)
+                pairs.append((timeline_object, audiotrack))
+            else:  # forget any TimelineObject without an audio track
+                self._timeline_objects.pop(timeline_object)
         if len(pairs) >= 2:
-            for to, audiotrack in pairs:
+            for timeline_object, audiotrack in pairs:
                 # blocksize is the number of samples per block
                 blocksize = audiotrack.stream.rate // self.BLOCKRATE
-                extractee = EnvelopeExtractee(blocksize, self._envelopeCb, to)
+                extractee = EnvelopeExtractee(blocksize, self._envelopeCb,
+                                                                timeline_object)
                 # numsamples is the total number of samples in the track,
                 # which is used by the ProgressAggregator (p) to determine
                 # the percent completion.
                 numsamples = ((audiotrack.duration / gst.SECOND) *
                                                          audiotrack.stream.rate)
                 extractee.addWatcher(p.getPortionCB(numsamples))
-                self._envelope_stack.append((audiotrack, extractee))
-            audiotrack, extractee = self._envelope_stack.pop()
+                self._extraction_stack.append((audiotrack, extractee))
+            audiotrack, extractee = self._extraction_stack.pop()
             r = RandomAccessAudioExtractor(audiotrack.factory,
                                                               audiotrack.stream)
             r.extract(extractee, audiotrack.in_point,
@@ -265,21 +266,21 @@ class AutoAligner(Loggable):
 
     def _chooseTemplate(self):
         # chooses the timeline object with lowest priority as the template
-        def priority(to):
-            return to.priority
-        return min(self._tos.iterkeys(), key=priority)
+        def priority(timeline_object):
+            return timeline_object.priority
+        return min(self._timeline_objects.iterkeys(), key=priority)
 
     def _performShifts(self):
         self.debug("performing shifts")
         template = self._chooseTemplate()
-        tenv = self._tos.pop(template)
-        # tenv is the envelope of template.  pop() also removes tenv and
-        # template from future consideration.
-        pairs = list(self._tos.items())
+        template_envelope = self._timeline_objects.pop(template)
+        # pop() also removes the template and its envelope
+        # from further consideration.
+        pairs = list(self._timeline_objects.items())
         # We call list() because we need a reliable ordering of the pairs
         # (In python 3, dict.items() returns an unordered dictview)
         envelopes = [p[1] for p in pairs]
-        offsets = rigidalign(tenv, envelopes)
+        offsets = rigidalign(template_envelope, envelopes)
         for (movable, envelope), offset in zip(pairs, offsets):
             tshift = int((offset * gst.SECOND) / self.BLOCKRATE)
             # tshift is the offset rescaled to units of nanoseconds
