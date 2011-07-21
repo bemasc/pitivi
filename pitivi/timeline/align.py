@@ -180,6 +180,17 @@ class EnvelopeExtractee(Extractee, Loggable):
 class AutoAligner(Loggable):
     """ Class for aligning a set of L{TimelineObject}s automatically based on
         their contents. """
+
+    # The AutoAligner works by computing the "amplitude envelope" of each audio
+    # stream.  We define an amplitude envelope as the absolute value of the
+    # audio samples, downsampled to a low samplerate.  This samplerate, in Hz,
+    # is given by BLOCKRATE.  (It is given this name because the downsampling
+    # filter is implemented by very simple averaging over blocks, i.e. a
+    # box filter.)  25 Hz appears to be a good choice because it
+    # evenly divides all common audio samplerates (e.g. 11025 and 8000).
+    # Lower blockrate requires less CPU time but produces less accurate
+    # alignment.  Higher blockrate is the reverse (and also cannot evenly divide
+    # all samplerates).
     BLOCKRATE = 25
 
     def __init__(self, tobjects, callback):
