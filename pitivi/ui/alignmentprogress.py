@@ -47,10 +47,10 @@ class AlignmentProgressDialog:
         self.window = self.builder.get_object("align-progress")
         self.progressbar = self.builder.get_object("progressbar")
         # Parent this dialog with mainwindow
-        # set_transient_for is supposed to allow this dialog to properly
-        # minimize together with the mainwindow.  This method is identical to
-        # that used in EncodingProgressDialog.
-        # FIXME: it does not work here, nor does it work in
+        # set_transient_for allows this dialog to properly
+        # minimize together with the mainwindow.  This method is
+        # taken from EncodingProgressDialog.  In both cases, it appears
+        # to work correctly, although there is a known bug for Gnome 3 in
         # EncodingProgressDialog (bug #652917)
         self.window.set_transient_for(app.gui)
 
