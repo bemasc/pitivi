@@ -52,7 +52,9 @@ class AlignmentProgressDialog:
         self.window.set_transient_for(self.app)
 
         # UI widgets
-        self.window.set_icon_from_file(configure.get_pixmap_dir() + "/pitivi-render-16.png")
+        # We currently reuse the render icon for this dialog.
+        self.window.set_icon_from_file(os.path.join(configure.get_pixmap_dir(),
+                                                        "pitivi-render-16.png"))
 
         # FIXME: Add a cancel button
 
