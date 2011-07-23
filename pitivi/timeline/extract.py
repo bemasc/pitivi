@@ -27,6 +27,7 @@ Code derived from ui/previewer.py.
 """
 
 import gst
+from collections import deque
 from pitivi.elements.singledecodebin import SingleDecodeBin
 from pitivi.elements.extractionsink import ExtractionSink
 from pitivi.log.loggable import Loggable
@@ -105,7 +106,7 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
     inspired by L{RandomAccessAudioPreviewer}."""
 
     def __init__(self, factory, stream_):
-        self._queue = []
+        self._queue = deque()
         RandomAccessExtractor.__init__(self, factory, stream_)
         self._ready = False
 
@@ -170,13 +171,13 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
     def _finishSegment(self):
         self.audioSink.extractee.finalize()
         self.audioSink.reset()
-        self._queue.pop(0)
+        self._queue.popleft()
         # If there's more to do, keep running
-        if len(self._queue) > 0:
+        if self._queue:
             self._run()
 
     def extract(self, extractee, start, duration):
-        stopped = len(self._queue) == 0
+        stopped = not self._queue
         self._queue.append((extractee, start, duration))
         if stopped and self._ready:
             self._run()
