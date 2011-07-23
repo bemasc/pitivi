@@ -66,11 +66,11 @@ class Extractor(Loggable):
         Loggable.__init__(self)
         self.debug("Initialized with %s %s", factory, stream_)
 
-    def extract(self, e, start, duration):
+    def extract(self, extractee, start, duration):
         """ Extract the raw data corresponding to a segment of the stream.
 
-        @param e: the L{Extractee} that will receive the raw data
-        @type e: L{Extractee}
+        @param extractee: the L{Extractee} that will receive the raw data
+        @type extractee: L{Extractee}
         @param start: The point in the stream at which the segment starts (nanoseconds)
         @type start: L{long}
         @param duration: The duration of the segment (nanoseconds)
@@ -175,9 +175,9 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         if len(self._queue) > 0:
             self._run()
 
-    def extract(self, e, start, duration):
+    def extract(self, extractee, start, duration):
         stopped = len(self._queue) == 0
-        self._queue.append((e, start, duration))
+        self._queue.append((extractee, start, duration))
         if stopped and self._ready:
             self._run()
         # if self._ready is False, self._run() will be called from
@@ -190,6 +190,6 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
         # extract request) in each cycle. The cycle
         # runs until the queue of Extractees empties.  If the cycle is not
         # running, extract() will kick it off again.
-        e, start, duration = self._queue[0]
-        self.audioSink.set_extractee(e)
+        extractee, start, duration = self._queue[0]
+        self.audioSink.set_extractee(extractee)
         self._startSegment(start, duration)
