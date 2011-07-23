@@ -54,12 +54,15 @@ def getAudioTrack(timeline_object):
 class ProgressMeter:
     """ Abstract interface representing a progress meter. """
 
-    def addWatcher(self, r):
+    def addWatcher(self, function):
         """ Add a progress watching callback function.  This callback will
         always be called from the main thread.
 
-        @param r: a function to call with progress updates.
-        @type r: function(fractional_progress, time_remaining_text)
+        @param function: a function to call with progress updates.
+        @type function: callable(fractional_progress, time_remaining_text).
+            fractional_progress is a float normalize to [0,1].
+            time_remaining_text is a localized text string indicating the
+            estimated time remaining.
         """
         raise NotImplementedError
 
@@ -96,8 +99,8 @@ class ProgressAggregator(ProgressMeter):
             gobject.idle_add(self._callForward)
         return cb
 
-    def addWatcher(self, w):
-        self._watchers.append(w)
+    def addWatcher(self, function):
+        self._watchers.append(function)
 
     def _callForward(self):
         t = sum(self._targets)
