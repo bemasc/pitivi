@@ -215,15 +215,18 @@ class AutoAligner(Loggable):
         # actively in process at a time.
         self._extraction_stack = []
 
-    def _envelopeCb(self, array, timeline_object):
-        self.debug("Receiving envelope for %s", timeline_object)
-        self._timeline_objects[timeline_object] = array
-        if self._extraction_stack:  # extract an envelope from the next track
+    def _extractNextEnvelope(self):
             audiotrack, extractee = self._extraction_stack.pop()
             r = RandomAccessAudioExtractor(audiotrack.factory,
                                            audiotrack.stream)
             r.extract(extractee, audiotrack.in_point,
                       audiotrack.out_point - audiotrack.in_point)
+
+    def _envelopeCb(self, array, timeline_object):
+        self.debug("Receiving envelope for %s", timeline_object)
+        self._timeline_objects[timeline_object] = array
+        if self._extraction_stack:
+            self._extractNextEnvelope()
         else:  # This was the last envelope
             self._performShifts()
             self._callback()
@@ -256,11 +259,7 @@ class AutoAligner(Loggable):
                 extractee.addWatcher(
                         progress_aggregator.getPortionCB(numsamples))
                 self._extraction_stack.append((audiotrack, extractee))
-            audiotrack, extractee = self._extraction_stack.pop()
-            r = RandomAccessAudioExtractor(audiotrack.factory,
-                                           audiotrack.stream)
-            r.extract(extractee, audiotrack.in_point,
-                      audiotrack.out_point - audiotrack.in_point)
+            self._extractNextEnvelope()  # Start the extraction cycle
         else:  # We can't do anything without at least two audio tracks
             # After we return, call the callback function (once)
             gobject.idle_add(call_false, self._callback)
