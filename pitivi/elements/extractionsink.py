@@ -21,7 +21,7 @@
 # Boston, MA 02110-1301, USA.
 
 """
-Extract audio samples without without storing the whole waveform in memory
+Extract audio samples without storing the whole waveform in memory
 """
 
 import array
