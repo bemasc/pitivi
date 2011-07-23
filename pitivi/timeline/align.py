@@ -60,7 +60,7 @@ class ProgressMeter:
 
         @param function: a function to call with progress updates.
         @type function: callable(fractional_progress, time_remaining_text).
-            fractional_progress is a float normalize to [0,1].
+            fractional_progress is a float normalized to [0,1].
             time_remaining_text is a localized text string indicating the
             estimated time remaining.
         """
@@ -103,15 +103,19 @@ class ProgressAggregator(ProgressMeter):
         self._watchers.append(function)
 
     def _callForward(self):
-        t = sum(self._targets)
-        p = sum(self._portions)
-        if t == 0:
-            return
-        frac = min(1.0, float(p) / t)
+        # This function always returns False so that it may be safely
+        # invoked via gobject.idle_add(). Use of idle_add() is necessary
+        # to ensure that watchers are always called from the main thread,
+        # even if progress updates are received from other threads.
+        total_target = sum(self._targets)
+        total_completed = sum(self._portions)
+        if total_target == 0:
+            return False
+        frac = min(1.0, float(total_completed) / total_target)
         now = time.time()
         remaining = (now - self._start) * (1 - frac) / frac
-        for w in self._watchers:
-            w(frac, beautify_ETA(int(remaining * gst.SECOND)))
+        for function in self._watchers:
+            function(frac, beautify_ETA(int(remaining * gst.SECOND)))
         return False
 
 
