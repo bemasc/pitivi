@@ -41,7 +41,8 @@ def getAudioTrack(timeline_object):
 
     @param timeline_object: The TimelineObject from which to locate an audio track
     @type timeline_object: L{TimelineObject}
-    @returns: An audio track from to, or None if to has no audio track
+    @returns: An audio track from timeline_object, or None if
+        timeline_object has no audio track
     @rtype: audio L{TrackObject} or L{NoneType}
     """
     for track in timeline_object.track_objects:
