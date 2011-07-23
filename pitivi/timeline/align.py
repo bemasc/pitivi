@@ -234,7 +234,7 @@ class AutoAligner(Loggable):
         @returns: a L{ProgressMeter} indicating the progress of the alignment
         @rtype: L{ProgressMeter}
         """
-        p = ProgressAggregator()
+        progress_aggregator = ProgressAggregator()
         pairs = []  # (TimelineObject, {audio}TrackObject) pairs
         for timeline_object in self._timeline_objects.keys():
             audiotrack = getAudioTrack(timeline_object)
@@ -249,11 +249,12 @@ class AutoAligner(Loggable):
                 extractee = EnvelopeExtractee(blocksize, self._envelopeCb,
                                               timeline_object)
                 # numsamples is the total number of samples in the track,
-                # which is used by the ProgressAggregator (p) to determine
+                # which is used by progress_aggregator to determine
                 # the percent completion.
                 numsamples = ((audiotrack.duration / gst.SECOND) *
                               audiotrack.stream.rate)
-                extractee.addWatcher(p.getPortionCB(numsamples))
+                extractee.addWatcher(
+                        progress_aggregator.getPortionCB(numsamples))
                 self._extraction_stack.append((audiotrack, extractee))
             audiotrack, extractee = self._extraction_stack.pop()
             r = RandomAccessAudioExtractor(audiotrack.factory,
@@ -263,7 +264,7 @@ class AutoAligner(Loggable):
         else:  # We can't do anything without at least two audio tracks
             # After we return, call the callback function (once)
             gobject.idle_add(call_false, self._callback)
-        return p
+        return progress_aggregator
 
     def _chooseTemplate(self):
         # chooses the timeline object with lowest priority as the template
