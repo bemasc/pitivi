@@ -39,8 +39,8 @@ from pitivi.timeline.alignalgs import rigidalign
 def getAudioTrack(timeline_object):
     """ Helper function for getting an audio track from a TimelineObject
 
-    @param to: The TimelineObject from which to locate an audio track
-    @type to: L{TimelineObject}
+    @param timeline_object: The TimelineObject from which to locate an audio track
+    @type timeline_object: L{TimelineObject}
     @returns: An audio track from to, or None if to has no audio track
     @rtype: audio L{TrackObject} or L{NoneType}
     """
