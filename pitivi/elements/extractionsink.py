@@ -58,8 +58,8 @@ class ExtractionSink(gst.BaseSink):
         self.reset()
         self._cb = None
 
-    def set_extractee(self, e):
-        self.extractee = e
+    def set_extractee(self, extractee):
+        self.extractee = extractee
 
     def set_stopped_cb(self, cb):
         self._cb = cb
