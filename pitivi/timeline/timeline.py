@@ -1970,8 +1970,8 @@ class Timeline(Signallable, Loggable):
             process
         @rtype: L{ProgressMeter}
         """
-        a = AutoAligner(self.selection.selected, callback)
-        progress_meter = a.start()
+        auto_aligner = AutoAligner(self.selection.selected, callback)
+        progress_meter = auto_aligner.start()
         return progress_meter
 
     def deleteSelection(self):
