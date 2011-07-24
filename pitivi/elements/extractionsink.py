@@ -28,7 +28,6 @@ import array
 import gobject
 gobject.threads_init()
 import gst
-import gtk
 from pitivi.utils import native_endianness, call_false
 
 
