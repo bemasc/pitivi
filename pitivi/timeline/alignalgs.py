@@ -62,13 +62,13 @@ def submax(left, middle, right):
 
 
 def rigidalign(reference, targets):
-        """ Estimates the relative shift between reference and templates
+        """ Estimates the relative shift between reference and targets
             by locating the maximum of their (mean-subtracted) cross-correlation
 
             @param reference: the waveform to regard as fixed
-            @type reference: Sequence
+            @type reference: Sequence(Number)
             @param targets: the waveforms that should be aligned to reference
-            @type targets: Sequence(Sequence)
+            @type targets: Sequence(Sequence(Number))
             @returns: The shift necessary to bring each target into alignment
                 with the reference.  The returned shift may not be an integer,
                 indicating that the best alignment would be achieved by a

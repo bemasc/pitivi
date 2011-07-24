@@ -277,29 +277,33 @@ class AutoAligner(Loggable):
             gobject.idle_add(call_false, self._callback)
         return progress_aggregator
 
-    def _chooseTemplate(self):
-        # chooses the timeline object with lowest priority as the template
+    def _chooseReference(self):
+        """ Chooses the timeline object with lowest priority as the
+            fixed reference.
+
+            @returns: the L{TimelineObject} with lowest priority."""
         def priority(timeline_object):
             return timeline_object.priority
         return min(self._timeline_objects.iterkeys(), key=priority)
 
     def _performShifts(self):
         self.debug("performing shifts")
-        template = self._chooseTemplate()
-        # By using pop(), this line also removes the template and its
-        # envelope from further consideration, saving some CPU time.
-        template_envelope = self._timeline_objects.pop(template)
+        reference = self._chooseReference()
+        # By using pop(), this line also removes the reference
+        # TimelineObject and its envelope from further consideration,
+        # saving some CPU time in rigidalign.
+        reference_envelope = self._timeline_objects.pop(reference)
         # We call list() because we need a reliable ordering of the pairs
         # (In python 3, dict.items() returns an unordered dictview)
         pairs = list(self._timeline_objects.items())
         envelopes = [p[1] for p in pairs]
-        offsets = rigidalign(template_envelope, envelopes)
+        offsets = rigidalign(reference_envelope, envelopes)
         for (movable, envelope), offset in zip(pairs, offsets):
             # tshift is the offset rescaled to units of nanoseconds
             tshift = int((offset * gst.SECOND) / self.BLOCKRATE)
             self.debug("Shifting %s to %i ns from %i",
-                       movable, tshift, template.start)
-            newstart = template.start + tshift
+                       movable, tshift, reference.start)
+            newstart = reference.start + tshift
             if newstart >= 0:
                 movable.start = newstart
             else:
