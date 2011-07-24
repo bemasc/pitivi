@@ -295,8 +295,8 @@ class AutoAligner(Loggable):
         envelopes = [p[1] for p in pairs]
         offsets = rigidalign(template_envelope, envelopes)
         for (movable, envelope), offset in zip(pairs, offsets):
-            tshift = int((offset * gst.SECOND) / self.BLOCKRATE)
             # tshift is the offset rescaled to units of nanoseconds
+            tshift = int((offset * gst.SECOND) / self.BLOCKRATE)
             self.debug("Shifting %s to %i ns from %i",
                        movable, tshift, template.start)
             newstart = template.start + tshift
