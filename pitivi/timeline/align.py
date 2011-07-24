@@ -227,6 +227,18 @@ class AutoAligner(Loggable):
         # actively in process at a time.
         self._extraction_stack = []
 
+    @staticmethod
+    def canAlign(timeline_objects):
+        """ Determine whether a group of timeline objects can all
+            be aligned together by an AutoAligner.
+
+        @param timeline_objects: a group of timeline objects
+        @type timeline_objects: iterable(L{TimelineObject})
+        @returns: True iff the objects can aligned.
+        @rtype: L{bool}
+        """
+        return all(getAudioTrack(t) is not None for t in timeline_objects)
+
     def _extractNextEnvelope(self):
             audiotrack, extractee = self._extraction_stack.pop()
             r = RandomAccessAudioExtractor(audiotrack.factory,

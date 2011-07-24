@@ -44,6 +44,7 @@ from pitivi.ui.filelisterrordialog import FileListErrorDialog
 from pitivi.ui.curve import Curve
 from pitivi.ui.common import SPACING
 from pitivi.ui.alignmentprogress import AlignmentProgressDialog
+from pitivi.timeline.align import AutoAligner
 
 from pitivi.factories.operation import EffectFactory
 
@@ -728,7 +729,7 @@ class Timeline(gtk.Table, Loggable, Zoomable):
             if len(timeline.selection) > 1:
                 link = True
                 group = True
-                align = True
+                align = AutoAligner.canAlign(timeline.selection)
 
             start = None
             duration = None
