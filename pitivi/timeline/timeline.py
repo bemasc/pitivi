@@ -1962,7 +1962,7 @@ class Timeline(Signallable, Loggable):
     def alignSelection(self, callback):
         """
         Auto-align the selected set of L{TimelineObject}s based on their
-        contents.  Return asynchronously, and call back when finished
+        contents.  Return asynchronously, and call back when finished.
 
         @param callback: function to call (with no arguments) when finished.
         @type callback: function
