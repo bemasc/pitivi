@@ -142,10 +142,11 @@ class EnvelopeExtractee(Extractee, Loggable):
         self._cbargs = cbargs
         self._blocks = numpy.zeros((0,), dtype=numpy.float32)
         self._empty = array.array('f', [])
+        # self._samples buffers up to self._threshold samples, before
+        # their envelope is computed and store in self._blocks, in order
+        # to amortize some of the function call overheads.
         self._samples = array.array('f', [])
         self._threshold = 2000 * blocksize
-        # self._leftover buffers up to blocksize-1 samples in case receive()
-        # is called with a number of samples that is not divisible by blocksize
         self._progress_watchers = []
 
     def receive(self, a):
@@ -166,18 +167,21 @@ class EnvelopeExtractee(Extractee, Loggable):
     def _process_samples(self):
         excess = len(self._samples) % self._blocksize
         if excess != 0:
-            a = self._samples[:-excess]
+            samples_to_process = self._samples[:-excess]
             self._samples = self._samples[-excess:]
         else:
-            a = self._samples
+            samples_to_process = self._samples
             self._samples = array.array('f', [])
-        self.debug("Adding %s samples to %s blocks", len(a), len(self._blocks))
-        newblocks = len(a) // self._blocksize
-        a = numpy.abs(a).reshape((newblocks, self._blocksize))
+        self.debug("Adding %s samples to %s blocks",
+                   len(samples_to_process), len(self._blocks))
+        newblocks = len(samples_to_process) // self._blocksize
+        samples_abs = numpy.abs(
+                samples_to_process).reshape((newblocks, self._blocksize))
         self._blocks.resize((len(self._blocks) + newblocks,))
-        self._blocks[-newblocks:] = numpy.sum(a, 1)
-        # Relies on a being a floating-point type. If a is int16 then the sum
-        # may overflow.
+        # This numpy.sum() call relies on samples_abs being a
+        # floating-point type. If samples_abs.dtype is int16
+        # then the sum may overflow.
+        self._blocks[-newblocks:] = numpy.sum(samples_abs, 1)
         for w in self._progress_watchers:
             w(self._blocksize * len(self._blocks) + excess)
 
@@ -282,12 +286,12 @@ class AutoAligner(Loggable):
     def _performShifts(self):
         self.debug("performing shifts")
         template = self._chooseTemplate()
+        # By using pop(), this line also removes the template and its
+        # envelope from further consideration, saving some CPU time.
         template_envelope = self._timeline_objects.pop(template)
-        # pop() also removes the template and its envelope
-        # from further consideration.
-        pairs = list(self._timeline_objects.items())
         # We call list() because we need a reliable ordering of the pairs
         # (In python 3, dict.items() returns an unordered dictview)
+        pairs = list(self._timeline_objects.items())
         envelopes = [p[1] for p in pairs]
         offsets = rigidalign(template_envelope, envelopes)
         for (movable, envelope), offset in zip(pairs, offsets):
