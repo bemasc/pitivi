@@ -230,7 +230,6 @@ class Timeline(gtk.Table, Loggable, Zoomable):
         self._createUI()
         self._prev_duration = 0
         self.rate = gst.Fraction(1, 1)
-        self._progress_dialog = None
 
     def _createUI(self):
         self.leftSizeGroup = gtk.SizeGroup(gtk.SIZE_GROUP_HORIZONTAL)
@@ -808,18 +807,18 @@ class Timeline(gtk.Table, Loggable, Zoomable):
 
     def alignSelected(self, unused_action):
         if self.timeline:
-            self._progress_dialog = AlignmentProgressDialog(self.app)
-            self._progress_dialog.window.show()
+            progress_dialog = AlignmentProgressDialog(self.app)
+            progress_dialog.window.show()
             self.app.action_log.begin("align")
             self.timeline.disableUpdates()
-            pmeter = self.timeline.alignSelection(self._alignedCb)
-            pmeter.addWatcher(self._progress_dialog.updatePosition)
 
-    def _alignedCb(self):
-        self.timeline.enableUpdates()
-        self.app.action_log.commit()
-        self._progress_dialog.window.destroy()
-        self._progress_dialog = None
+            def alignedCb():  # Called when alignment is complete
+                self.timeline.enableUpdates()
+                self.app.action_log.commit()
+                progress_dialog.window.destroy()
+
+            pmeter = self.timeline.alignSelection(alignedCb)
+            pmeter.addWatcher(progress_dialog.updatePosition)
 
     def split(self, action):
         self.app.action_log.begin("split")
