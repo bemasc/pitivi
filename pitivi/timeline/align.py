@@ -151,6 +151,7 @@ class EnvelopeExtractee(Extractee, Loggable):
             The function's first argument will be a numpy array
             representing the envelope, and any later argument to this
             function will be passed as subsequent arguments to callback.
+
         """
         Loggable.__init__(self)
         self._blocksize = blocksize
@@ -178,6 +179,7 @@ class EnvelopeExtractee(Extractee, Loggable):
 
         @param w: callback function
         @type w: function(# of samples received so far)
+
         """
         self._progress_watchers.append(w)
 
@@ -279,6 +281,7 @@ class AutoAligner(Loggable):
                                        audiotrack.stream)
         r.extract(extractee, audiotrack.in_point,
                   audiotrack.out_point - audiotrack.in_point)
+        return False
 
     def _envelopeCb(self, array, timeline_object):
         self.debug("Receiving envelope for %s", timeline_object)
@@ -320,7 +323,16 @@ class AutoAligner(Loggable):
                 extractee.addWatcher(
                         progress_aggregator.getPortionCB(numsamples))
                 self._extraction_stack.append((audiotrack, extractee))
-            self._extractNextEnvelope()  # Start the extraction cycle
+            # After we return, start the extraction cycle.
+            # This gobject.idle_add call should not be necessary;
+            # we should be able to invoke _extractNextEnvelope directly
+            # here.  However, there is some as-yet-unexplained
+            # race condition between the Python GIL, GTK UI updates,
+            # GLib mainloop, and pygst multithreading, resulting in
+            # occasional deadlocks during autoalignment.
+            # This call to idle_add() reportedly eliminates the deadlock.
+            # No one knows why.
+            gobject.idle_add(self._extractNextEnvelope)
         else:  # We can't do anything without at least two audio tracks
             # After we return, call the callback function (once)
             gobject.idle_add(call_false, self._callback)
