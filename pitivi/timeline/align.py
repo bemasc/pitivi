@@ -80,7 +80,10 @@ class ProgressAggregator(ProgressMeter):
     """
 
     def __init__(self):
+        # _targets is a list giving the size of each task.
         self._targets = []
+        # _portions is a list of the same length as _targets, indicating
+        # the portion of each task that as been completed (initially 0).
         self._portions = []
         self._start = time.time()
         self._watchers = []
