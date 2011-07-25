@@ -35,29 +35,42 @@ from pitivi.utils import pipeline
 
 
 class Extractee:
-    """ Abstract base class for objects that receive raw data from an
-        L{Extractor}."""
+
+    """Abstract base class for receiving raw data from an L{Extractor}."""
 
     def receive(self, array):
-        """ Receive a chunk of data from an Extractor.
+        """
+        Receive a chunk of data from an Extractor.
 
         @param array: The chunk of data as an array
         @type array: any kind of numeric array
+
         """
         raise NotImplementedError
 
     def finalize(self):
-        """ Indicates that the extraction is complete, so the Extractee should
-            process the data it has received. """
+        """
+        Inform the Extractee that receive() will not be called again.
+
+        Indicates that the extraction is complete, so the Extractee should
+            process the data it has received.
+
+        """
         raise NotImplementedError
 
 
 class Extractor(Loggable):
-    """ Abstract base class for extraction of raw data from a stream.
-        Closely modeled on Previewer. """
+
+    """
+    Abstract base class for extraction of raw data from a stream.
+
+    Closely modeled on L{Previewer}.
+
+    """
 
     def __init__(self, factory, stream_):
-        """ Create a new Extractor.
+        """
+        Create a new Extractor.
 
         @param factory: the factory with which to decode the stream
         @type factory: L{ObjectFactory}
@@ -68,20 +81,29 @@ class Extractor(Loggable):
         self.debug("Initialized with %s %s", factory, stream_)
 
     def extract(self, extractee, start, duration):
-        """ Extract the raw data corresponding to a segment of the stream.
+        """
+        Extract the raw data corresponding to a segment of the stream.
 
         @param extractee: the L{Extractee} that will receive the raw data
         @type extractee: L{Extractee}
-        @param start: The point in the stream at which the segment starts (nanoseconds)
+        @param start: The point in the stream at which the segment starts
+            (nanoseconds)
         @type start: L{long}
         @param duration: The duration of the segment (nanoseconds)
-        @type duration: L{long}"""
+        @type duration: L{long}
+
+        """
         raise NotImplementedError
 
 
 class RandomAccessExtractor(Extractor):
-    """ Abstract class for L{Extractor}s of random access streams, closely
-    inspired by L{RandomAccessPreviewer}."""
+
+    """
+    Abstract class for L{Extractor}s of random access streams.
+
+    Closely inspired by L{RandomAccessPreviewer}.
+
+    """
 
     def __init__(self, factory, stream_):
         Extractor.__init__(self, factory, stream_)
@@ -95,15 +117,26 @@ class RandomAccessExtractor(Extractor):
         self._pipelineInit(factory, bin)
 
     def _pipelineInit(self, factory, bin):
-        """Create the pipeline for the preview process. Subclasses should
-        override this method and create a pipeline, connecting to callbacks to
-        the appropriate signals, and prerolling the pipeline if necessary."""
+        """
+        Create the pipeline for the preview process.
+
+        Subclasses should
+        override this method and create a pipeline, connecting to
+        callbacks to the appropriate signals, and prerolling the
+        pipeline if necessary.
+
+        """
         raise NotImplementedError
 
 
 class RandomAccessAudioExtractor(RandomAccessExtractor):
-    """L{Extractor} for random access audio streams, closely
-    inspired by L{RandomAccessAudioPreviewer}."""
+
+    """
+    L{Extractor} for random access audio streams.
+
+    Closely inspired by L{RandomAccessAudioPreviewer}.
+
+    """
 
     def __init__(self, factory, stream_):
         self._queue = deque()
@@ -115,9 +148,9 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
 
         self.audioSink = ExtractionSink()
         self.audioSink.set_stopped_cb(self._finishSegment)
-        # This audiorate element ensures that the extracted raw-data timeline
-        # matches the timestamps used for seeking, even if the audio source has
-        # gaps or other timestamp abnormalities.
+        # This audiorate element ensures that the extracted raw-data
+        # timeline matches the timestamps used for seeking, even if the
+        # audio source has gaps or other timestamp abnormalities.
         audiorate = gst.element_factory_make("audiorate")
         conv = gst.element_factory_make("audioconvert")
         q = gst.element_factory_make("queue")
@@ -134,11 +167,12 @@ class RandomAccessAudioExtractor(RandomAccessExtractor):
                                       self._busMessageAsyncDoneCb)
 
         self.audioPipeline.set_state(gst.STATE_PAUSED)
-        # The audiopipeline.set_state() method does not take effect immediately,
-        # but the extraction process (and in particular self._startSegment) will
-        # not work properly until self.audioPipeline reaches the desired
-        # state (STATE_PAUSED).  To ensure that this is the case, we wait until
-        # the ASYNC_DONE message is received before setting self._ready = True,
+        # The audiopipeline.set_state() method does not take effect
+        # immediately, but the extraction process (and in particular
+        # self._startSegment) will not work properly until
+        # self.audioPipeline reaches the desired state (STATE_PAUSED).
+        # To ensure that this is the case, we wait until the ASYNC_DONE
+        # message is received before setting self._ready = True,
         # which enables extraction to proceed.
 
     def _busMessageErrorCb(self, bus, message):

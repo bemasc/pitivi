@@ -37,13 +37,15 @@ from pitivi.timeline.alignalgs import rigidalign
 
 
 def getAudioTrack(timeline_object):
-    """ Helper function for getting an audio track from a TimelineObject
+    """Helper function for getting an audio track from a TimelineObject
 
-    @param timeline_object: The TimelineObject from which to locate an audio track
+    @param timeline_object: The TimelineObject from which to locate an
+        audio track
     @type timeline_object: L{TimelineObject}
     @returns: An audio track from timeline_object, or None if
         timeline_object has no audio track
     @rtype: audio L{TrackObject} or L{NoneType}
+
     """
     for track in timeline_object.track_objects:
         if track.stream_type == AudioStream:
@@ -52,7 +54,8 @@ def getAudioTrack(timeline_object):
 
 
 class ProgressMeter:
-    """ Abstract interface representing a progress meter. """
+
+    """Abstract interface representing a progress meter."""
 
     def addWatcher(self, function):
         """ Add a progress watching callback function.  This callback will
@@ -68,8 +71,13 @@ class ProgressMeter:
 
 
 class ProgressAggregator(ProgressMeter):
-    """ A ProgressMeter that aggregates progress reports from multiple
-        sources into a unified progress report """
+
+    """A ProgressMeter that aggregates progress reports.
+
+    Reports from multiple sources are combined into a unified progress
+    report.
+
+    """
 
     def __init__(self):
         self._targets = []
@@ -78,17 +86,20 @@ class ProgressAggregator(ProgressMeter):
         self._watchers = []
 
     def getPortionCB(self, target):
-        """ Prepare a new input for the Aggregator.  Given a target size
-            (in arbitrary units, but should be consistent across all calls on
-            a single ProgressAggregator object), it returns a callback that
-            can be used to update progress on this portion of the task.
+        """Prepare a new input for the Aggregator.
 
-            @param target: the total task size for this portion
-            @type target: number
-            @returns: a callback that can be used to inform the Aggregator of subsequent
-                updates to this portion
-            @rtype: function(x), where x should be a number indicating the absolute
-                amount of this subtask that has been completed.
+        Given a target size
+        (in arbitrary units, but should be consistent across all calls on
+        a single ProgressAggregator object), it returns a callback that
+        can be used to update progress on this portion of the task.
+
+        @param target: the total task size for this portion
+        @type target: number
+        @returns: a callback that can be used to inform the Aggregator of
+            subsequent updates to this portion
+        @rtype: function(x), where x should be a number indicating the
+            absolute amount of this subtask that has been completed.
+
         """
         i = len(self._targets)
         self._targets.append(target)
@@ -120,12 +131,14 @@ class ProgressAggregator(ProgressMeter):
 
 
 class EnvelopeExtractee(Extractee, Loggable):
-    """ Class that computes the envelope of a 1-D signal
-        (presumably audio).  The envelope is computed incrementally,
-        so that the entire signal does not ever need to be stored.
 
-        The envelope is defined as the sum of the absolute value of the signal
-        over a block."""
+    """Class that computes the envelope of a 1-D signal (audio).
+
+    The envelope is defined as the sum of the absolute value of the signal
+    over each block.  This class computes the envelope incrementally,
+    so that the entire signal does not ever need to be stored.
+
+    """
 
     def __init__(self, blocksize, callback, *cbargs):
         """
@@ -157,7 +170,8 @@ class EnvelopeExtractee(Extractee, Loggable):
             self._process_samples()
 
     def addWatcher(self, w):
-        """ Add a function to call with progress updates.
+        """
+        Add a function to call with progress updates.
 
         @param w: callback function
         @type w: function(# of samples received so far)
@@ -191,20 +205,32 @@ class EnvelopeExtractee(Extractee, Loggable):
 
 
 class AutoAligner(Loggable):
-    """ Class for aligning a set of L{TimelineObject}s automatically based on
-        their contents. """
 
-    # The AutoAligner works by computing the "amplitude envelope" of each audio
-    # stream.  We define an amplitude envelope as the absolute value of the
-    # audio samples, downsampled to a low samplerate.  This samplerate, in Hz,
-    # is given by BLOCKRATE.  (It is given this name because the downsampling
-    # filter is implemented by very simple averaging over blocks, i.e. a
-    # box filter.)  25 Hz appears to be a good choice because it
-    # evenly divides all common audio samplerates (e.g. 11025 and 8000).
-    # Lower blockrate requires less CPU time but produces less accurate
-    # alignment.  Higher blockrate is the reverse (and also cannot evenly divide
-    # all samplerates).
+    """
+    Class for aligning a set of L{TimelineObject}s automatically.
+
+    The alignment is based on their contents, so that the shifted tracks
+    are synchronized.  The current implementation only analyzes audio
+    data, so timeline objects without an audio track cannot be aligned.
+
+    """
+
     BLOCKRATE = 25
+    """
+    @ivar BLOCKRATE: The number of amplitude blocks per second.
+
+    The AutoAligner works by computing the "amplitude envelope" of each
+    audio stream.  We define an amplitude envelope as the absolute value
+    of the audio samples, downsampled to a low samplerate.  This
+    samplerate, in Hz, is given by BLOCKRATE.  (It is given this name
+    because the downsampling filter is implemented by very simple
+    averaging over blocks, i.e. a box filter.)  25 Hz appears to be a
+    good choice because it evenly divides all common audio samplerates
+    (e.g. 11025 and 8000). Lower blockrate requires less CPU time but
+    produces less accurate alignment.  Higher blockrate is the reverse
+    (and also cannot evenly divide all samplerates).
+
+    """
 
     def __init__(self, timeline_objects, callback):
         """
@@ -215,6 +241,7 @@ class AutoAligner(Loggable):
         @param callback: A function to call when alignment is complete.  No
             arguments will be provided.
         @type callback: function
+
         """
         Loggable.__init__(self)
         # self._timeline_objects maps each object to its envelope.  The values
@@ -229,22 +256,26 @@ class AutoAligner(Loggable):
 
     @staticmethod
     def canAlign(timeline_objects):
-        """ Determine whether a group of timeline objects can all
-            be aligned together by an AutoAligner.
+        """
+        Can an AutoAligner align these objects?
+
+        Determine whether a group of timeline objects can all
+        be aligned together by an AutoAligner.
 
         @param timeline_objects: a group of timeline objects
         @type timeline_objects: iterable(L{TimelineObject})
         @returns: True iff the objects can aligned.
         @rtype: L{bool}
+
         """
         return all(getAudioTrack(t) is not None for t in timeline_objects)
 
     def _extractNextEnvelope(self):
-            audiotrack, extractee = self._extraction_stack.pop()
-            r = RandomAccessAudioExtractor(audiotrack.factory,
-                                           audiotrack.stream)
-            r.extract(extractee, audiotrack.in_point,
-                      audiotrack.out_point - audiotrack.in_point)
+        audiotrack, extractee = self._extraction_stack.pop()
+        r = RandomAccessAudioExtractor(audiotrack.factory,
+                                       audiotrack.stream)
+        r.extract(extractee, audiotrack.in_point,
+                  audiotrack.out_point - audiotrack.in_point)
 
     def _envelopeCb(self, array, timeline_object):
         self.debug("Receiving envelope for %s", timeline_object)
@@ -256,10 +287,13 @@ class AutoAligner(Loggable):
             self._callback()
 
     def start(self):
-        """ Initiate the auto-alignment process
+        """
+        Initiate the auto-alignment process.
 
-        @returns: a L{ProgressMeter} indicating the progress of the alignment
+        @returns: a L{ProgressMeter} indicating the progress of the
+            alignment
         @rtype: L{ProgressMeter}
+
         """
         progress_aggregator = ProgressAggregator()
         pairs = []  # (TimelineObject, {audio}TrackObject) pairs
@@ -290,10 +324,18 @@ class AutoAligner(Loggable):
         return progress_aggregator
 
     def _chooseReference(self):
-        """ Chooses the timeline object with lowest priority as the
-            fixed reference.
+        """
+        Chooses the timeline object to use as a reference.
 
-            @returns: the L{TimelineObject} with lowest priority."""
+        This function currently selects the one with lowest priority,
+        i.e. appears highest in the GUI.  The behavior of this function
+        affects user interaction, because the user may want to
+        determine which object moves and which stays put.
+
+        @returns: the timeline object with lowest priority.
+        @rtype: L{TimelineObject}
+
+        """
         def priority(timeline_object):
             return timeline_object.priority
         return min(self._timeline_objects.iterkeys(), key=priority)

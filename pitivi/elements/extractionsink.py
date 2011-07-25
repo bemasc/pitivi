@@ -32,9 +32,11 @@ from pitivi.utils import native_endianness, call_false
 
 
 class ExtractionSink(gst.BaseSink):
+
     """
     Passes audio data directly to a provided L{Extractee}
     """
+
     caps = gst.Caps(
         "audio/x-raw-float, width=(int) 32, "
         "endianness = (int) %s, "

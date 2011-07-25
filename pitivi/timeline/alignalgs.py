@@ -34,9 +34,13 @@ def nextpow2(x):
 
 
 def submax(left, middle, right):
-    """Given samples from a quadratic P(x) at x=-1, 0, and 1, find the x
-    that extremizes P.  This is useful for determining the subsample position of
-    the extremum given three samples around the observed extreme.
+    """
+    Find the maximum of a quadratic function from three samples.
+
+    Given samples from a quadratic P(x) at x=-1, 0, and 1, find the x
+    that extremizes P.  This is useful for determining the subsample
+    position of the extremum given three samples around the observed
+    extreme.
 
     @param left: value at x=-1
     @type left: L{float}
@@ -45,12 +49,14 @@ def submax(left, middle, right):
     @param right: value at x=1
     @type right: L{float}
     @returns: value of x that extremizes the interpolating quadratic
-    @rtype: L{float}"""
+    @rtype: L{float}
+
+    """
     L = middle - left   # L and R are both positive if middle is the
     R = middle - right  # observed max of the integer samples
     return 0.5 * (R - L) / (R + L)
     # Derivation: Consider a quadratic q(x) := P(0) - P(x).  Then q(x) has
-    # two roots, one at 0 and one at z, and the extreme is halfway between them
+    # two roots, one at 0 and one at z, and the extreme is at (0+z)/2
     # (i.e. at z/2)
     # q(x) = bx*(x-z) # a may be positive or negative
     # q(1) = b*(1 - z) = R
@@ -62,44 +68,49 @@ def submax(left, middle, right):
 
 
 def rigidalign(reference, targets):
-        """ Estimates the relative shift between reference and targets
-            by locating the maximum of their (mean-subtracted) cross-correlation
+    """
+    Estimate the relative shift between reference and targets.
 
-            @param reference: the waveform to regard as fixed
-            @type reference: Sequence(Number)
-            @param targets: the waveforms that should be aligned to reference
-            @type targets: Sequence(Sequence(Number))
-            @returns: The shift necessary to bring each target into alignment
-                with the reference.  The returned shift may not be an integer,
-                indicating that the best alignment would be achieved by a
-                non-integer shift and appropriate interpolation.
-            @rtype: Sequence(number)
-        """
-        # L is the maximum size of a cross-correlation between the
-        # reference and any of the targets.
-        L = len(reference) + max(len(t) for t in targets) - 1
-        # We round up L to the next power of 2 for speed in the FFT.
-        L = nextpow2(L)
-        reference = reference - numpy.mean(reference)
-        fref = numpy.fft.rfft(reference, L).conj()
-        shifts = []
-        for t in targets:
-            t = t - numpy.mean(t)
-            # Compute cross-correlation
-            xcorr = numpy.fft.irfft(fref * numpy.fft.rfft(t, L))
-            shift = int(numpy.argmax(xcorr))
-            # shift maximizes dotproduct(t[shift:],reference)
-            # int() to convert numpy.int32 to python int
-            subsample_shift = submax(xcorr[(shift - 1) % L],
-                                     xcorr[shift],
-                                     xcorr[(shift + 1) % L])
-            shift = shift + subsample_shift
-            # shift is now a float indicating the interpolated maximum
-            if shift >= len(t):  # Negative shifts appear large and positive
-                shift -= L       # This corrects them to be negative
-            shifts.append(-shift)
-            #Sign reversed to move the target instead of the reference
-        return shifts
+    The algorithm works by subtracting the mean, and then locating
+    the maximum of the cross-correlation.  For inputs of length M{N},
+    the running time is M{O(C{len(targets)}*N*log(N))}.
+
+    @param reference: the waveform to regard as fixed
+    @type reference: Sequence(Number)
+    @param targets: the waveforms that should be aligned to reference
+    @type targets: Sequence(Sequence(Number))
+    @returns: The shift necessary to bring each target into alignment
+        with the reference.  The returned shift may not be an integer,
+        indicating that the best alignment would be achieved by a
+        non-integer shift and appropriate interpolation.
+    @rtype: Sequence(Number)
+
+    """
+    # L is the maximum size of a cross-correlation between the
+    # reference and any of the targets.
+    L = len(reference) + max(len(t) for t in targets) - 1
+    # We round up L to the next power of 2 for speed in the FFT.
+    L = nextpow2(L)
+    reference = reference - numpy.mean(reference)
+    fref = numpy.fft.rfft(reference, L).conj()
+    shifts = []
+    for t in targets:
+        t = t - numpy.mean(t)
+        # Compute cross-correlation
+        xcorr = numpy.fft.irfft(fref * numpy.fft.rfft(t, L))
+        # shift maximizes dotproduct(t[shift:],reference)
+        # int() to convert numpy.int32 to python int
+        shift = int(numpy.argmax(xcorr))
+        subsample_shift = submax(xcorr[(shift - 1) % L],
+                                 xcorr[shift],
+                                 xcorr[(shift + 1) % L])
+        shift = shift + subsample_shift
+        # shift is now a float indicating the interpolated maximum
+        if shift >= len(t):  # Negative shifts appear large and positive
+            shift -= L       # This corrects them to be negative
+        shifts.append(-shift)
+        # Sign reversed to move the target instead of the reference
+    return shifts
 
 
 def _findslope(a):
